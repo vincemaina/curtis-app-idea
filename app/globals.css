@@ -74,6 +74,24 @@ body {
   animation: scoreRing 1.5s ease-out forwards;
 }
 
+/* Landing page orb blur blobs */
+@keyframes orbFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.04); }
+}
+.orb {
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: orbFloat 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Floating chat bubble animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
 /* Gradient text */
 .gradient-text {
   background: linear-gradient(135deg, #a78bfa, #7c5cfc, #06b6d4);

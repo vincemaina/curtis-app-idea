@@ -213,7 +213,7 @@ export default function ResultsPage() {
           <div className="text-lg font-semibold text-game-text">Analysis failed</div>
           <p className="text-sm text-game-red">{error}</p>
           <p className="text-xs text-game-text-dim">Make sure ANTHROPIC_API_KEY is set in your environment.</p>
-          <Link href="/" className="inline-block mt-2 bg-game-accent hover:bg-game-accent-dim text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          <Link href="/play" className="inline-block mt-2 bg-game-accent hover:bg-game-accent-dim text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
             Back to menu
           </Link>
         </div>
@@ -344,7 +344,7 @@ export default function ResultsPage() {
             </Link>
           )}
           <Link
-            href="/"
+            href="/play"
             className="flex-1 min-w-[160px] text-center bg-game-card border border-game-border hover:border-game-accent/30 text-game-text px-5 py-3 rounded-xl font-semibold text-sm transition-all"
           >
             Choose Another Scenario →
