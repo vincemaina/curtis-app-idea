@@ -84,8 +84,8 @@ export default function World({
         camera={{ fov: 75, near: 0.1, far: 250, position: [0, 1.7, 23] }}
         dpr={1}          // PerformanceController handles actual pixel budget via gl.setSize
         shadows="soft"
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
-        style={{ width: '100vw', height: '100vh', display: 'block' }}
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
+        style={{ width: '100%', height: '100%', display: 'block' }}
       >
         <Suspense fallback={null}>
           {/* Resolution + FPS controller — must be first so it captures the initial size */}

@@ -329,7 +329,20 @@ export default function Game3D({ scenario }: Props) {
   const chatOpen  = !!gameState.activeNpcId
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-black relative select-none">
+    // Outer shell — full screen black, centres the 4:3 game viewport
+    <div className="h-screen w-screen bg-black flex items-center justify-center">
+      {/* 4:3 game viewport — smaller than the screen gives a deliberate border */}
+      <div
+        className="relative overflow-hidden select-none"
+        style={{
+          aspectRatio: '4/3',
+          // Fit inside the viewport with a ~4% margin on every side
+          height: 'min(92vh, calc(92vw * 3 / 4))',
+          // Subtle frame so it reads as an intentional window, not a broken layout
+          outline: '2px solid rgba(255,255,255,0.07)',
+          boxShadow: '0 0 80px rgba(0,0,0,0.9)',
+        }}
+      >
       {/* 3-D world */}
       <World
         scenario={scenario}
@@ -368,6 +381,7 @@ export default function Game3D({ scenario }: Props) {
           inputRef={inputRef}
         />
       )}
+      </div>{/* end 4:3 game viewport */}
     </div>
   )
 }

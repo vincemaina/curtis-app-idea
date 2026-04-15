@@ -92,6 +92,13 @@ body {
   50% { transform: translateY(-8px); }
 }
 
+/* Force blocky nearest-neighbour upscaling on the WebGL canvas so the
+   low-resolution render target looks pixelated rather than smoothly blurred */
+canvas {
+  image-rendering: pixelated;   /* Chrome, Edge */
+  image-rendering: crisp-edges; /* Firefox fallback */
+}
+
 /* Gradient text */
 .gradient-text {
   background: linear-gradient(135deg, #a78bfa, #7c5cfc, #06b6d4);
