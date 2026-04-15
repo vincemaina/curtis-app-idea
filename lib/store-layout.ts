@@ -25,6 +25,20 @@ export const STORE = {
   frontZ:   28,
 } as const
 
+// ── Aisle navigation ──────────────────────────────────────────────────────────
+// The three walkway aisles between the 4 shelf columns (numbered left→right).
+// Aisle 1: x=-8  (between x=-12 and x=-4 shelves — Tinned/Soup/Household)
+// Aisle 2: x= 0  (between x=-4  and x=4  shelves — Cereals/Dairy/Drinks)
+// Aisle 3: x= 8  (between x=4   and x=12 shelves — World Foods/Health)
+export const AISLE_WALKWAY_X: Readonly<Record<number, number>> = {
+  1: -8,
+  2:  0,
+  3:  8,
+} as const
+
+// Z position an NPC targets when searching an aisle (mid-store, row 5)
+export const AISLE_SEARCH_Z = -30
+
 // ── Collision boxes ────────────────────────────────────────────────────────────
 // Each entry is [xMin, zMin, xMax, zMax] in world-space XZ.
 // Boxes are inflated by ~0.45 m (player radius) so the camera never clips geometry.

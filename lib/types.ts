@@ -75,6 +75,16 @@ export interface GameState {
   startedAt: number
   triggeredChanceEventIds: string[]
   totalMessageCount: number
+  /** How many times the player gave an NPC wrong aisle directions */
+  misdirectedCount: number
+}
+
+// ── NPC Intent ────────────────────────────────────────────────────────────────
+// Tracks an NPC actively searching for an item based on player directions.
+export interface NPCIntent {
+  seekingItem: string                           // item ID the NPC wants to find
+  targetAisle: number                           // aisle the player directed them to (1-3)
+  status: 'en-route' | 'found' | 'wrong-aisle' // lifecycle stage
 }
 
 // --- API types ---
@@ -85,6 +95,8 @@ export interface ChatRequest {
   userMessage: string
   conversationHistory: Message[]
   completedObjectiveIds: string[]
+  /** NPC's current searching state — passed as context so they can describe what they're doing */
+  npcIntent?: NPCIntent | null
 }
 
 export interface ChatResponse {
@@ -92,8 +104,12 @@ export interface ChatResponse {
   emotion: NPCMood
   objectivesCompleted: string[]
   conversationEnded: boolean
-  /** Item ID the NPC intends to physically walk to and retrieve (supermarket only) */
+  /** Item ID the NPC intends to physically walk to and retrieve (knows exact location) */
   moveTo?: string
+  /** Aisle number (1-3) the NPC will walk to in order to search for an item */
+  searchAisle?: number
+  /** Item ID the NPC is heading to search for — required when searchAisle is set */
+  seekingItem?: string
 }
 
 export interface AnalyzeRequest {
