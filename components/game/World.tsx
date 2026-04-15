@@ -2,7 +2,8 @@
 
 import { Canvas } from '@react-three/fiber'
 import { KeyboardControls } from '@react-three/drei'
-import { Suspense } from 'react'
+import { Suspense, useRef } from 'react'
+import * as THREE from 'three'
 import type { Scenario, Message } from '@/lib/types'
 import type { SupermarketItem } from '@/lib/supermarket-items'
 import SupermarketScene from './SupermarketScene'
@@ -27,9 +28,11 @@ interface Props {
   items: SupermarketItem[]
   collectedItemIds: string[]
   chatOpen: boolean
+  npcTargets: Record<string, [number, number, number] | null>
   onTalkToNPC: (npcId: string) => void
   onCollectItem: (itemId: string) => void
   onLockedChange: (locked: boolean) => void
+  onTargetReached: (npcId: string) => void
 }
 
 export default function World({
@@ -38,10 +41,15 @@ export default function World({
   items,
   collectedItemIds,
   chatOpen,
+  npcTargets,
   onTalkToNPC,
   onCollectItem,
   onLockedChange,
+  onTargetReached,
 }: Props) {
+  // Shared ref so NPCs can register their live world positions (for future collision use etc.)
+  const npcPositionsRef = useRef(new Map<string, THREE.Vector3>())
+
   return (
     <KeyboardControls map={KEY_MAP}>
       <Canvas
@@ -56,9 +64,13 @@ export default function World({
             <NPCCharacter
               key={npc.id}
               npc={npc}
-              position={getNPCPosition(scenario.id, npc.id)}
+              scenarioId={scenario.id}
+              initialPosition={getNPCPosition(scenario.id, npc.id)}
               hasTalked={!!conversations[npc.id]?.length}
               chatOpen={chatOpen}
+              targetOverride={npcTargets[npc.id] ?? null}
+              npcPositionsRef={npcPositionsRef}
+              onTargetReached={() => onTargetReached(npc.id)}
             />
           ))}
 

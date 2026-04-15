@@ -57,6 +57,7 @@ OUTPUT FIELDS:
 - emotion: the character's current emotion — one of: friendly|neutral|busy|stressed|sad|confused
 - objectivesCompleted: list of objective IDs genuinely completed by this exchange (usually empty)
 - conversationEnded: true only if the user said a proper goodbye and the conversation has naturally ended
+- moveTo: ONLY set this if you explicitly decide to go and physically walk to fetch an item right now (e.g. "I'll go grab that for you" / "Let me go get it"). Valid item IDs: "chickpeas", "tomatoes", "coconut", "potatoes". Omit otherwise.
 
 OBJECTIVE COMPLETION RULES:
 - Only mark an objective as completed if the user has genuinely achieved it through the conversation.
@@ -105,6 +106,11 @@ OBJECTIVE COMPLETION RULES:
               },
               objectivesCompleted: { type: 'array', items: { type: 'string' } },
               conversationEnded: { type: 'boolean' },
+              moveTo: {
+                type: 'string',
+                enum: ['chickpeas', 'tomatoes', 'coconut', 'potatoes'],
+                description: 'Item the NPC will physically walk to fetch — omit if not applicable',
+              },
             },
             required: ['dialogue', 'emotion', 'objectivesCompleted', 'conversationEnded'],
           },

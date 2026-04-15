@@ -92,6 +92,8 @@ export interface ChatResponse {
   emotion: NPCMood
   objectivesCompleted: string[]
   conversationEnded: boolean
+  /** Item ID the NPC intends to physically walk to and retrieve (supermarket only) */
+  moveTo?: string
 }
 
 export interface AnalyzeRequest {

@@ -32,6 +32,7 @@ export default function Game3D({ scenario }: Props) {
   const [isLocked,        setIsLocked]        = useState(false)
   const [newlyCompleted,  setNewlyCompleted]  = useState<string[]>([])
   const [collectedItemIds, setCollectedItemIds] = useState<string[]>([])
+  const [npcTargets, setNpcTargets] = useState<Record<string, [number, number, number] | null>>({})
 
   // Only show items for the supermarket scenario
   const sceneItems = scenario.id === 'supermarket' ? SUPERMARKET_ITEMS : []
@@ -139,6 +140,14 @@ export default function Game3D({ scenario }: Props) {
           setNewlyCompleted(freshCompleted)
           setTimeout(() => setNewlyCompleted([]), 3000)
         }
+
+        // NPC declared they'll physically go fetch an item — send them there
+        if (data.moveTo && scenario.id === 'supermarket') {
+          const item = sceneItems.find(i => i.id === data.moveTo)
+          if (item) {
+            setNpcTargets(prev => ({ ...prev, [npcId]: item.position }))
+          }
+        }
       } catch {
         const errMsg: Message = {
           id: `err-${Date.now()}`,
@@ -161,6 +170,10 @@ export default function Game3D({ scenario }: Props) {
     },
     [gameState, isLoading, scenario],
   )
+
+  const handleTargetReached = useCallback((npcId: string) => {
+    setNpcTargets(prev => ({ ...prev, [npcId]: null }))
+  }, [])
 
   const handleCollectItem = useCallback((itemId: string) => {
     const item = sceneItems.find(i => i.id === itemId)
@@ -203,9 +216,11 @@ export default function Game3D({ scenario }: Props) {
         items={sceneItems}
         collectedItemIds={collectedItemIds}
         chatOpen={chatOpen}
+        npcTargets={npcTargets}
         onTalkToNPC={handleTalkToNPC}
         onCollectItem={handleCollectItem}
         onLockedChange={setIsLocked}
+        onTargetReached={handleTargetReached}
       />
 
       {/* HUD overlays */}
