@@ -109,10 +109,11 @@ Focus especially on:
         },
       ],
       messages: [{ role: 'user', content: userPrompt }],
-      output_config: {
-        format: {
-          type: 'json_schema',
-          schema: {
+      tools: [
+        {
+          name: 'submit_analysis',
+          description: 'Submit the structured coaching analysis for the conversation session.',
+          input_schema: {
             type: 'object',
             properties: {
               overallScore: { type: 'number' },
@@ -130,7 +131,6 @@ Focus especially on:
                     exampleImprovement: { type: 'string' },
                   },
                   required: ['npcId', 'npcName', 'score', 'positives', 'improvements', 'tips'],
-                  additionalProperties: false,
                 },
               },
               completedObjectives: { type: 'array', items: { type: 'string' } },
@@ -140,14 +140,15 @@ Focus especially on:
               overallFeedback: { type: 'string' },
             },
             required: ['overallScore', 'conversationScores', 'completedObjectives', 'missedObjectives', 'missedOpportunities', 'keyLessons', 'overallFeedback'],
-            additionalProperties: false,
           },
         },
-      },
+      ],
+      tool_choice: { type: 'tool', name: 'submit_analysis' },
     })
 
-    const text = response.content.find(b => b.type === 'text')?.text ?? '{}'
-    const parsed = JSON.parse(text)
+    const toolUse = response.content.find(b => b.type === 'tool_use')
+    if (!toolUse || toolUse.type !== 'tool_use') throw new Error('No tool use in response')
+    const parsed = toolUse.input as Record<string, unknown>
     const analysis: AnalysisResult = {
       ...parsed,
       grade: gradeFromScore(parsed.overallScore),
