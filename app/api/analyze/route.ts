@@ -148,7 +148,7 @@ Focus especially on:
 
     const toolUse = response.content.find(b => b.type === 'tool_use')
     if (!toolUse || toolUse.type !== 'tool_use') throw new Error('No tool use in response')
-    const parsed = toolUse.input as Record<string, unknown>
+    const parsed = toolUse.input as Omit<AnalysisResult, 'grade'>
     const analysis: AnalysisResult = {
       ...parsed,
       grade: gradeFromScore(parsed.overallScore),

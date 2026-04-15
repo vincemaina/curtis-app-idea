@@ -91,26 +91,31 @@ OBJECTIVE COMPLETION RULES:
         },
       ],
       messages,
-      output_config: {
-        format: {
-          type: 'json_schema',
-          schema: {
+      tools: [
+        {
+          name: 'respond_as_npc',
+          description: 'Submit the NPC response as structured JSON.',
+          input_schema: {
             type: 'object',
             properties: {
               dialogue: { type: 'string' },
-              emotion: { type: 'string', enum: ['friendly', 'neutral', 'busy', 'stressed', 'sad', 'confused'] },
+              emotion: {
+                type: 'string',
+                enum: ['friendly', 'neutral', 'busy', 'stressed', 'sad', 'confused'],
+              },
               objectivesCompleted: { type: 'array', items: { type: 'string' } },
               conversationEnded: { type: 'boolean' },
             },
             required: ['dialogue', 'emotion', 'objectivesCompleted', 'conversationEnded'],
-            additionalProperties: false,
           },
         },
-      },
+      ],
+      tool_choice: { type: 'tool', name: 'respond_as_npc' },
     })
 
-    const text = response.content.find(b => b.type === 'text')?.text ?? '{}'
-    const parsed: ChatResponse = JSON.parse(text)
+    const toolUse = response.content.find(b => b.type === 'tool_use')
+    if (!toolUse || toolUse.type !== 'tool_use') throw new Error('No tool use in response')
+    const parsed = toolUse.input as ChatResponse
 
     return NextResponse.json(parsed)
   } catch (err) {
