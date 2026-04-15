@@ -86,10 +86,10 @@ export default function World({
 
           <PlayerController
             npcs={scenario.npcs}
-            scenarioId={scenario.id}
             items={items}
             collectedItemIds={collectedItemIds}
             chatOpen={chatOpen}
+            npcPositionsRef={npcPositionsRef}
             onTalkToNPC={onTalkToNPC}
             onCollectItem={onCollectItem}
             onLockedChange={onLockedChange}

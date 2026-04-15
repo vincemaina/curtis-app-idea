@@ -245,8 +245,6 @@ function FridgeUnit({ position }: { position: [number, number, number] }) {
           })}
         </group>
       ))}
-      {/* Cool interior glow */}
-      <pointLight position={[0, 1.5, 0]} intensity={0.6} color="#b0d8ff" distance={3.5} />
     </group>
   )
 }
@@ -388,17 +386,17 @@ export default function SupermarketScene() {
 
   return (
     <group>
-      {/* ── Lighting ─────────────────────────────────────────────────── */}
-      {/* Soft ambient — warm indoor feel */}
-      <ambientLight intensity={0.55} color="#ffe8cc" />
+      {/* ── Lighting (10 lights total) ───────────────────────────────── */}
+      {/* Ambient — slightly warm, bright enough to read the scene without extra fills */}
+      <ambientLight intensity={0.9} color="#ffe8cc" />
 
-      {/* Main directional fill from above the entrance */}
+      {/* Single shadow-casting directional from the entrance */}
       <directionalLight
         position={[4, 14, 18]}
         intensity={0.7}
         color="#fff4e0"
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
         shadow-camera-near={0.5}
         shadow-camera-far={80}
         shadow-camera-left={-30}
@@ -408,35 +406,17 @@ export default function SupermarketScene() {
         shadow-bias={-0.001}
       />
 
-      {/* Ceiling SpotLights — warm white, pointing straight down */}
-      {([-10, -2, 6, 14] as const).map(x =>
-        ([-6, 4, -16] as const).map(z => (
-          <spotLight
-            key={`spot-${x}-${z}`}
-            position={[x, 4.7, z]}
-            target-position={[x, 0, z]}
-            angle={0.45}
-            penumbra={0.5}
-            intensity={18}
-            distance={12}
-            color="#fff8ee"
-            castShadow={false}
-          />
-        ))
-      )}
+      {/* 5 ceiling fills — replaces 12 spotlights, no shadow cost */}
+      <pointLight position={[-8, 4.5, -5]}  intensity={35} color="#fff8ee" distance={20} decay={2} />
+      <pointLight position={[ 8, 4.5, -5]}  intensity={35} color="#fff8ee" distance={20} decay={2} />
+      <pointLight position={[-8, 4.5,  8]}  intensity={30} color="#fff8ee" distance={18} decay={2} />
+      <pointLight position={[ 8, 4.5,  8]}  intensity={30} color="#fff8ee" distance={18} decay={2} />
+      <pointLight position={[ 0, 4.5, -17]} intensity={28} color="#fff8ee" distance={18} decay={2} />
 
-      {/* Cool-blue accent light from the fridge section */}
-      <pointLight position={[0, 2.5, -21]} intensity={3} color="#88bbff" distance={14} />
-      <pointLight position={[0, 1.5, -21]} intensity={1.5} color="#aad0ff" distance={8} />
-
-      {/* Warm accent near bakery back wall */}
-      <pointLight position={[0, 3, -22.5]} intensity={4} color="#ffd090" distance={10} />
-
-      {/* Produce section — slightly cooler, fresher */}
-      <pointLight position={[-14, 2.5, 1]} intensity={5} color="#d8f0d8" distance={10} />
-
-      {/* Entrance warm wash */}
-      <pointLight position={[0, 3, 20]} intensity={6} color="#ffe4b0" distance={18} />
+      {/* Zone accents — fridge cool, produce green, entrance warm */}
+      <pointLight position={[ 0, 2.5, -22]} intensity={5}  color="#88bbff" distance={18} decay={2} />
+      <pointLight position={[-15, 2.5,  1]} intensity={4}  color="#d8f0d8" distance={10} decay={2} />
+      <pointLight position={[ 0, 3.5,  22]} intensity={7}  color="#ffe4b0" distance={20} decay={2} />
 
       {/* ── Floor ──────────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>

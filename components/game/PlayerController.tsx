@@ -6,16 +6,15 @@ import { PointerLockControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { NPC } from '@/lib/types'
 import type { SupermarketItem } from '@/lib/supermarket-items'
-import { getNPCPosition } from '@/lib/npc-positions'
 
 type Keys = 'forward' | 'backward' | 'left' | 'right' | 'interact'
 
 interface Props {
   npcs: NPC[]
-  scenarioId: string
   items: SupermarketItem[]
   collectedItemIds: string[]
   chatOpen: boolean
+  npcPositionsRef: React.MutableRefObject<Map<string, THREE.Vector3>>
   onTalkToNPC: (npcId: string) => void
   onCollectItem: (itemId: string) => void
   onLockedChange: (locked: boolean) => void
@@ -28,21 +27,22 @@ const BOUNDS = { xMin: -19, xMax: 19, zMin: -22, zMax: 22 }
 
 export default function PlayerController({
   npcs,
-  scenarioId,
   items,
   collectedItemIds,
   chatOpen,
+  npcPositionsRef,
   onTalkToNPC,
   onCollectItem,
   onLockedChange,
 }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const controlsRef    = useRef<any>(null)
+  const controlsRef     = useRef<any>(null)
   const interactPressed = useRef(false)
-  const forwardVec     = useRef(new THREE.Vector3())
-  const rightVec       = useRef(new THREE.Vector3())
-  const UP             = useRef(new THREE.Vector3(0, 1, 0))
-  const { camera }     = useThree()
+  const forwardVec      = useRef(new THREE.Vector3())
+  const rightVec        = useRef(new THREE.Vector3())
+  const UP              = useRef(new THREE.Vector3(0, 1, 0))
+  const _distVec        = useRef(new THREE.Vector3())  // reused — no per-frame allocs
+  const { camera }      = useThree()
 
   const [, getKeys] = useKeyboardControls<Keys>()
 
@@ -95,12 +95,14 @@ export default function PlayerController({
     if (keys.interact && !interactPressed.current) {
       interactPressed.current = true
 
-      // 1. NPCs take priority (higher interaction radius)
+      // 1. NPCs take priority — use live positions so moving NPCs are interactable
       let closestNPC: NPC | null = null
       let closestNPCDist = Infinity
       for (const npc of npcs) {
-        const [x, , z] = getNPCPosition(scenarioId, npc.id)
-        const dist = camera.position.distanceTo(new THREE.Vector3(x, 1.7, z))
+        const livePos = npcPositionsRef.current.get(npc.id)
+        if (!livePos) continue
+        _distVec.current.set(livePos.x, 1.7, livePos.z)
+        const dist = camera.position.distanceTo(_distVec.current)
         if (dist < NPC_DIST && dist < closestNPCDist) {
           closestNPCDist = dist
           closestNPC = npc
@@ -117,7 +119,8 @@ export default function PlayerController({
       for (const item of items) {
         if (collectedItemIds.includes(item.id)) continue
         const [x, , z] = item.position
-        const dist = camera.position.distanceTo(new THREE.Vector3(x, 1.7, z))
+        _distVec.current.set(x, 1.7, z)
+        const dist = camera.position.distanceTo(_distVec.current)
         if (dist < ITEM_DIST && dist < closestItemDist) {
           closestItemDist = dist
           closestItem = item

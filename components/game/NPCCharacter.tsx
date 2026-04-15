@@ -268,7 +268,7 @@ export default function NPCCharacter({
     <group ref={groupRef}>
       {/* Floor shadow */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[0.38, 16]} />
+        <circleGeometry args={[0.38, 8]} />
         <meshStandardMaterial color="#000" transparent opacity={0.22} />
       </mesh>
 
@@ -314,7 +314,7 @@ export default function NPCCharacter({
           </mesh>
           {/* Hand */}
           <mesh position={[-0.1, -0.55, 0]}>
-            <sphereGeometry args={[0.075, 8, 8]} />
+            <sphereGeometry args={[0.075, 6, 6]} />
             <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
           </mesh>
         </group>
@@ -327,7 +327,7 @@ export default function NPCCharacter({
           </mesh>
           {/* Hand */}
           <mesh position={[0.1, -0.55, 0]}>
-            <sphereGeometry args={[0.075, 8, 8]} />
+            <sphereGeometry args={[0.075, 6, 6]} />
             <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
           </mesh>
         </group>
@@ -340,14 +340,14 @@ export default function NPCCharacter({
 
         {/* Head */}
         <mesh position={[0, 1.87, 0]} castShadow>
-          <sphereGeometry args={[0.24, 14, 14]} />
+          <sphereGeometry args={[0.24, 8, 8]} />
           <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
         </mesh>
 
         {/* Eyes */}
         {([-0.09, 0.09] as const).map(x => (
           <mesh key={x} position={[x, 1.90, 0.21]}>
-            <sphereGeometry args={[0.038, 8, 8]} />
+            <sphereGeometry args={[0.038, 6, 6]} />
             <meshStandardMaterial color="#1a1a2e" roughness={0.5} />
           </mesh>
         ))}
@@ -362,7 +362,7 @@ export default function NPCCharacter({
 
         {/* Mood dot */}
         <mesh position={[0, 2.28, 0]}>
-          <sphereGeometry args={[0.085, 8, 8]} />
+          <sphereGeometry args={[0.085, 6, 6]} />
           <meshStandardMaterial
             color={moodColor}
             emissive={moodColor}
