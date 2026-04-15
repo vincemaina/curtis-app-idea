@@ -52,13 +52,11 @@ YOUR BEHAVIOUR RULES:
 PENDING OBJECTIVES (you help complete these through natural conversation):
 ${objectivesContext}
 
-OUTPUT FORMAT — respond with ONLY valid JSON, no other text:
-{
-  "dialogue": "What ${npc.name} says out loud",
-  "emotion": "one of: friendly|neutral|busy|stressed|sad|confused",
-  "objectivesCompleted": ["list of objective IDs that were just completed by this exchange — only if genuinely earned"],
-  "conversationEnded": false
-}
+OUTPUT FIELDS:
+- dialogue: what ${npc.name} says out loud (1-4 sentences, in character)
+- emotion: the character's current emotion — one of: friendly|neutral|busy|stressed|sad|confused
+- objectivesCompleted: list of objective IDs genuinely completed by this exchange (usually empty)
+- conversationEnded: true only if the user said a proper goodbye and the conversation has naturally ended
 
 OBJECTIVE COMPLETION RULES:
 - Only mark an objective as completed if the user has genuinely achieved it through the conversation.
@@ -93,24 +91,26 @@ OBJECTIVE COMPLETION RULES:
         },
       ],
       messages,
+      output_config: {
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              dialogue: { type: 'string' },
+              emotion: { type: 'string', enum: ['friendly', 'neutral', 'busy', 'stressed', 'sad', 'confused'] },
+              objectivesCompleted: { type: 'array', items: { type: 'string' } },
+              conversationEnded: { type: 'boolean' },
+            },
+            required: ['dialogue', 'emotion', 'objectivesCompleted', 'conversationEnded'],
+            additionalProperties: false,
+          },
+        },
+      },
     })
 
-    const rawText = response.content.find(b => b.type === 'text')?.text ?? ''
-
-    let parsed: ChatResponse
-    try {
-      // Strip potential markdown code fences
-      const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
-      parsed = JSON.parse(cleaned)
-    } catch {
-      // If JSON parsing fails, use the raw text as dialogue
-      parsed = {
-        dialogue: rawText || "(I'm not sure what to say)",
-        emotion: 'neutral',
-        objectivesCompleted: [],
-        conversationEnded: false,
-      }
-    }
+    const text = response.content.find(b => b.type === 'text')?.text ?? '{}'
+    const parsed: ChatResponse = JSON.parse(text)
 
     return NextResponse.json(parsed)
   } catch (err) {

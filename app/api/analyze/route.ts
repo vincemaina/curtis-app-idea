@@ -61,26 +61,14 @@ Be direct, warm, and specific. Focus on actionable improvements. Don't be vague.
 Reference specific lines from the transcript when possible.
 Acknowledge what they did well before critiquing.
 
-OUTPUT: Respond with ONLY valid JSON, no other text, matching this exact schema:
-{
-  "overallScore": <number 0-10, one decimal>,
-  "conversationScores": [
-    {
-      "npcId": "<npcId>",
-      "npcName": "<name>",
-      "score": <0-10>,
-      "positives": ["<specific thing they did well>", ...],
-      "improvements": ["<specific thing to improve>", ...],
-      "tips": ["<actionable advice for next time>", ...],
-      "exampleImprovement": "<optional: rewrite one of their lines to show how it could be better>"
-    }
-  ],
-  "completedObjectives": [<list of completed objective descriptions>],
-  "missedObjectives": [<list of missed objective descriptions>],
-  "missedOpportunities": ["<specific missed social opportunity with explanation>", ...],
-  "keyLessons": ["<the 3-4 most important things to take away>", ...],
-  "overallFeedback": "<2-3 sentence overall assessment, warm but honest>"
-}`
+OUTPUT FIELDS:
+- overallScore: number 0–10 (one decimal place)
+- conversationScores: per-NPC breakdown with npcId, npcName, score, positives, improvements, tips, and optional exampleImprovement
+- completedObjectives: list of completed objective descriptions
+- missedObjectives: list of missed objective descriptions
+- missedOpportunities: specific missed social opportunities with explanation
+- keyLessons: the 3–4 most important takeaways
+- overallFeedback: 2–3 sentence overall assessment, warm but honest`
 
     const userPrompt = `Please analyse the following conversation session.
 
@@ -121,37 +109,48 @@ Focus especially on:
         },
       ],
       messages: [{ role: 'user', content: userPrompt }],
+      output_config: {
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              overallScore: { type: 'number' },
+              conversationScores: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    npcId: { type: 'string' },
+                    npcName: { type: 'string' },
+                    score: { type: 'number' },
+                    positives: { type: 'array', items: { type: 'string' } },
+                    improvements: { type: 'array', items: { type: 'string' } },
+                    tips: { type: 'array', items: { type: 'string' } },
+                    exampleImprovement: { type: 'string' },
+                  },
+                  required: ['npcId', 'npcName', 'score', 'positives', 'improvements', 'tips'],
+                  additionalProperties: false,
+                },
+              },
+              completedObjectives: { type: 'array', items: { type: 'string' } },
+              missedObjectives: { type: 'array', items: { type: 'string' } },
+              missedOpportunities: { type: 'array', items: { type: 'string' } },
+              keyLessons: { type: 'array', items: { type: 'string' } },
+              overallFeedback: { type: 'string' },
+            },
+            required: ['overallScore', 'conversationScores', 'completedObjectives', 'missedObjectives', 'missedOpportunities', 'keyLessons', 'overallFeedback'],
+            additionalProperties: false,
+          },
+        },
+      },
     })
 
-    const rawText = response.content.find(b => b.type === 'text')?.text ?? ''
-
-    let analysis: AnalysisResult
-    try {
-      const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
-      const parsed = JSON.parse(cleaned)
-      analysis = {
-        ...parsed,
-        grade: gradeFromScore(parsed.overallScore),
-      }
-    } catch {
-      // Fallback if parsing fails
-      analysis = {
-        overallScore: 5,
-        grade: 'C',
-        conversationScores: transcripts.map(t => ({
-          npcId: t.npcId,
-          npcName: t.npcName,
-          score: 5,
-          positives: ['You started a conversation — that takes courage.'],
-          improvements: ['Try to be more specific in your questions.'],
-          tips: ['Start with "Excuse me" to signal you want to interact politely.'],
-        })),
-        completedObjectives: completedObjectiveDescriptions,
-        missedObjectives: missedObjectiveDescriptions,
-        missedOpportunities: [],
-        keyLessons: ['Practice makes perfect — try the scenario again!'],
-        overallFeedback: rawText.slice(0, 500),
-      }
+    const text = response.content.find(b => b.type === 'text')?.text ?? '{}'
+    const parsed = JSON.parse(text)
+    const analysis: AnalysisResult = {
+      ...parsed,
+      grade: gradeFromScore(parsed.overallScore),
     }
 
     return NextResponse.json(analysis)
