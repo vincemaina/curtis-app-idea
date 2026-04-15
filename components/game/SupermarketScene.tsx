@@ -4,6 +4,7 @@ import { Html, useTexture } from '@react-three/drei'
 import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { SHELF_X, SHELF_ROWS_Z } from '@/lib/store-layout'
 
 // ── Ceiling fan ────────────────────────────────────────────────────────────────
 function CeilingFan({ position, speed = 2.2 }: {
@@ -430,9 +431,6 @@ function CeilingLight({ position }: { position: [number, number, number] }) {
 
 // ── Main scene ─────────────────────────────────────────────────────────────────
 export default function SupermarketScene() {
-  const SHELF_X      = [-12, -4, 4, 12]
-  const SHELF_ROWS_Z = [2, -8, -17]
-
   // ── Poly Haven textures ────────────────────────────────────────────────────
   const floorMaps = useTexture({
     map:          '/textures/floor_color.jpg',
@@ -450,7 +448,6 @@ export default function SupermarketScene() {
     roughnessMap: '/textures/shelf_roughness.jpg',
   })
 
-  // Configure repeat + wrap (once after texture load)
   useEffect(() => {
     const configure = (maps: typeof floorMaps, rs: number, rt: number) =>
       Object.values(maps).forEach(t => {
@@ -459,62 +456,71 @@ export default function SupermarketScene() {
         t.anisotropy = 8
         t.needsUpdate = true
       })
-    configure(floorMaps,  28, 35)   // floor: ~1.4 m tiles across 40×50 m
-    configure(wallMaps,   20, 2.5)  // wall: ~2 m tiles
-    configure(shelfMaps,  5,  1)    // shelf boards: 5 tiles across 2.5 m width
+    configure(floorMaps,  28, 75)   // floor: ~1.4 m tiles across 40 × 108 m
+    configure(wallMaps,   20, 2.5)  // wall:  ~2 m tiles
+    configure(shelfMaps,   5, 1)    // shelves: 5 tiles per 2.5 m span
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Grid of ceiling point-lights covering the full 108 m depth
+  const LIGHT_XS = [-8,  8] as const
+  const LIGHT_ZS = [12, -2, -16, -30, -44, -58, -70] as const
+
+  // End-cap positions — one pair per 3 aisle rows
+  const END_CAP_ZS = [7, -2, -12, -21, -30, -39, -48, -57, -66].map((z, i) => ({ z, seed: i * 2 }))
 
   return (
     <group>
       {/* ── Lighting ────────────────────────────────────────────────── */}
-      {/* Ambient — reduced slightly; Environment IBL picks up the slack */}
       <ambientLight intensity={0.55} color="#ffe8cc" />
 
-      {/* Single shadow-casting directional from the entrance */}
+      {/* Single shadow-casting directional (front half only) */}
       <directionalLight
         position={[4, 14, 18]}
-        intensity={0.7}
+        intensity={0.6}
         color="#fff4e0"
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={0.5}
-        shadow-camera-far={80}
-        shadow-camera-left={-30}
-        shadow-camera-right={30}
-        shadow-camera-top={30}
-        shadow-camera-bottom={-30}
+        shadow-camera-far={60}
+        shadow-camera-left={-25}
+        shadow-camera-right={25}
+        shadow-camera-top={25}
+        shadow-camera-bottom={-25}
         shadow-bias={-0.001}
       />
 
-      {/* 5 ceiling fills — replaces 12 spotlights, no shadow cost */}
-      <pointLight position={[-8, 4.5, -5]}  intensity={35} color="#fff8ee" distance={20} decay={2} />
-      <pointLight position={[ 8, 4.5, -5]}  intensity={35} color="#fff8ee" distance={20} decay={2} />
-      <pointLight position={[-8, 4.5,  8]}  intensity={30} color="#fff8ee" distance={18} decay={2} />
-      <pointLight position={[ 8, 4.5,  8]}  intensity={30} color="#fff8ee" distance={18} decay={2} />
-      <pointLight position={[ 0, 4.5, -17]} intensity={28} color="#fff8ee" distance={18} decay={2} />
+      {/* Grid of ceiling fills — no shadows, cover the full depth */}
+      {LIGHT_XS.map(x => LIGHT_ZS.map(z => (
+        <pointLight key={`pl-${x}-${z}`} position={[x, 4.5, z]} intensity={32} color="#fff8ee" distance={22} decay={2} />
+      )))}
+      {/* Centre aisle lights */}
+      {LIGHT_ZS.map(z => (
+        <pointLight key={`plc-${z}`} position={[0, 4.5, z]} intensity={22} color="#fff8ee" distance={20} decay={2} />
+      ))}
 
-      {/* Zone accents — fridge cool, produce green, entrance warm */}
-      <pointLight position={[ 0, 2.5, -22]} intensity={5}  color="#88bbff" distance={18} decay={2} />
-      <pointLight position={[-15, 2.5,  1]} intensity={4}  color="#d8f0d8" distance={10} decay={2} />
-      <pointLight position={[ 0, 3.5,  22]} intensity={7}  color="#ffe4b0" distance={20} decay={2} />
+      {/* Zone accents */}
+      <pointLight position={[ 0, 2.5, -73]} intensity={6}  color="#88bbff" distance={18} decay={2} />
+      <pointLight position={[-16, 2.5,  3]} intensity={4}  color="#d8f0d8" distance={12} decay={2} />
+      <pointLight position={[ 0, 3.5,  24]} intensity={7}  color="#ffe4b0" distance={20} decay={2} />
+      <pointLight position={[ 0, 3.0, -35]} intensity={5}  color="#ffeecc" distance={18} decay={2} />
 
       {/* ── Floor ──────────────────────────────────────────────────── */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[40, 50]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -25]} receiveShadow>
+        <planeGeometry args={[40, 108]} />
         <meshStandardMaterial {...floorMaps} roughness={0.18} metalness={0.04} />
       </mesh>
 
       {/* ── Ceiling ────────────────────────────────────────────────── */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 5, 0]}>
-        <planeGeometry args={[40, 50]} />
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 5, -25]}>
+        <planeGeometry args={[40, 108]} />
         <meshStandardMaterial color="#f0eeea" roughness={1} />
       </mesh>
-      {/* Ceiling grid structure */}
+      {/* Ceiling grid beams */}
       {[-15, -5, 5, 15].map(x =>
-        [-20, -10, 0, 10, 20].map(z => (
+        [-65, -45, -25, -5, 15].map(z => (
           <mesh key={`cgrid-${x}-${z}`} position={[x, 4.96, z]}>
-            <boxGeometry args={[0.1, 0.08, 20]} />
+            <boxGeometry args={[0.1, 0.08, 22]} />
             <meshStandardMaterial color="#d8d4ce" roughness={0.9} />
           </mesh>
         ))
@@ -522,80 +528,83 @@ export default function SupermarketScene() {
 
       {/* ── Ceiling light fixtures ──────────────────────────────────── */}
       {[-10, -2, 6, 14].map(x =>
-        [-6, 4, -16].map(z => (
+        [10, -3, -16, -29, -42, -55, -68].map(z => (
           <CeilingLight key={`clf-${x}-${z}`} position={[x, 4.9, z]} />
         ))
       )}
 
-      {/* ── Ceiling fans ────────────────────────────────────────────── */}
-      <CeilingFan position={[-8,  4.82,  10]} speed={2.0} />
-      <CeilingFan position={[ 8,  4.82,  10]} speed={2.4} />
-      <CeilingFan position={[ 0,  4.82, -2]}  speed={1.8} />
-      <CeilingFan position={[-8,  4.82, -13]} speed={2.2} />
+      {/* ── Ceiling fans (spread along depth) ───────────────────────── */}
+      <CeilingFan position={[-8, 4.82,  14]} speed={2.0} />
+      <CeilingFan position={[ 8, 4.82,  14]} speed={2.4} />
+      <CeilingFan position={[ 0, 4.82,  -1]} speed={1.8} />
+      <CeilingFan position={[-8, 4.82, -16]} speed={2.2} />
+      <CeilingFan position={[ 8, 4.82, -32]} speed={2.0} />
+      <CeilingFan position={[ 0, 4.82, -48]} speed={2.3} />
+      <CeilingFan position={[-8, 4.82, -64]} speed={1.9} />
 
       {/* ── Walls ──────────────────────────────────────────────────── */}
       {/* Back wall */}
-      <mesh position={[0, 2.5, -25]} receiveShadow>
+      <mesh position={[0, 2.5, -78]} receiveShadow>
         <boxGeometry args={[40, 5, 0.3]} />
         <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Left wall */}
-      <mesh position={[-20, 2.5, 0]} receiveShadow>
-        <boxGeometry args={[0.3, 5, 50]} />
+      <mesh position={[-20, 2.5, -25]} receiveShadow>
+        <boxGeometry args={[0.3, 5, 108]} />
         <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Right wall */}
-      <mesh position={[20, 2.5, 0]} receiveShadow>
-        <boxGeometry args={[0.3, 5, 50]} />
+      <mesh position={[20, 2.5, -25]} receiveShadow>
+        <boxGeometry args={[0.3, 5, 108]} />
         <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Front — left of entrance */}
-      <mesh position={[-11, 2.5, 25]}>
+      <mesh position={[-11, 2.5, 28]}>
         <boxGeometry args={[18, 5, 0.3]} />
         <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Front — right of entrance */}
-      <mesh position={[11, 2.5, 25]}>
+      <mesh position={[11, 2.5, 28]}>
         <boxGeometry args={[18, 5, 0.3]} />
         <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
 
       {/* Skirting boards */}
-      {[
-        { pos: [0, 0.12, -24.85] as [number,number,number], rot: [0,0,0] as [number,number,number], w: 40 },
-        { pos: [-19.85, 0.12, 0] as [number,number,number], rot: [0, Math.PI/2, 0] as [number,number,number], w: 50 },
-        { pos: [19.85, 0.12, 0] as [number,number,number], rot: [0, Math.PI/2, 0] as [number,number,number], w: 50 },
-      ].map((s, i) => (
-        <mesh key={i} position={s.pos} rotation={s.rot}>
-          <boxGeometry args={[s.w, 0.24, 0.06]} />
-          <meshStandardMaterial color="#d0cac0" roughness={0.8} />
-        </mesh>
-      ))}
+      <mesh position={[0, 0.12, -77.85]}>
+        <boxGeometry args={[40, 0.24, 0.06]} />
+        <meshStandardMaterial color="#d0cac0" roughness={0.8} />
+      </mesh>
+      <mesh position={[-19.85, 0.12, -25]} rotation={[0, Math.PI / 2, 0]}>
+        <boxGeometry args={[108, 0.24, 0.06]} />
+        <meshStandardMaterial color="#d0cac0" roughness={0.8} />
+      </mesh>
+      <mesh position={[19.85, 0.12, -25]} rotation={[0, Math.PI / 2, 0]}>
+        <boxGeometry args={[108, 0.24, 0.06]} />
+        <meshStandardMaterial color="#d0cac0" roughness={0.8} />
+      </mesh>
 
       {/* ── Entry mat ──────────────────────────────────────────────── */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 22]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 25]} receiveShadow>
         <planeGeometry args={[8, 3.5]} />
         <meshStandardMaterial color="#2a2a42" roughness={0.95} />
       </mesh>
-      {/* Welcome strip */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 22]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 25]}>
         <planeGeometry args={[7.6, 0.25]} />
         <meshStandardMaterial color="#7c5cfc" emissive="#7c5cfc" emissiveIntensity={0.3} roughness={0.8} />
       </mesh>
 
-      {/* ── Checkout counters ───────────────────────────────────────── */}
+      {/* ── Checkout counters (z ≈ 22) ─────────────────────────────── */}
       {[-7, -3, 3, 7].map(x => (
-        <CheckoutCounter key={x} position={[x, 0, 17]} />
+        <CheckoutCounter key={x} position={[x, 0, 22]} />
       ))}
-      {/* Checkout dividers */}
       {[-5, -1, 1, 5].map(x => (
-        <mesh key={x} position={[x, 0.7, 17]}>
+        <mesh key={x} position={[x, 0.7, 22]}>
           <boxGeometry args={[0.06, 1.4, 1.2]} />
           <meshStandardMaterial color="#555570" roughness={0.5} metalness={0.3} />
         </mesh>
       ))}
 
-      {/* ── Shelf aisles ────────────────────────────────────────────── */}
+      {/* ── Shelf aisles (4 columns × 9 rows) ──────────────────────── */}
       {SHELF_ROWS_Z.map((z, ri) =>
         SHELF_X.map((x, ci) => (
           <ShelfUnit
@@ -608,78 +617,104 @@ export default function SupermarketScene() {
         ))
       )}
 
-      {/* ── End-cap displays (end of each aisle row) ────────────────── */}
-      <EndCap position={[-16.5, 0,  2.5]} rotation={Math.PI / 2}  seed={1} />
-      <EndCap position={[-16.5, 0, -7.5]} rotation={Math.PI / 2}  seed={5} />
-      <EndCap position={[ 15.5, 0,  2.5]} rotation={-Math.PI / 2} seed={3} />
-      <EndCap position={[ 15.5, 0, -7.5]} rotation={-Math.PI / 2} seed={7} />
+      {/* ── End-cap displays (both ends of each aisle row) ──────────── */}
+      {END_CAP_ZS.map(({ z, seed }) => (
+        <group key={`ec-${z}`}>
+          <EndCap position={[-16.5, 0, z]} rotation={Math.PI / 2}  seed={seed}     />
+          <EndCap position={[ 15.5, 0, z]} rotation={-Math.PI / 2} seed={seed + 1} />
+        </group>
+      ))}
 
-      {/* ── Produce section ─────────────────────────────────────────── */}
-      <ProduceBin position={[-15.5, 0, -1]} color="#2ecc71" />
-      <ProduceBin position={[-15.5, 0,  2]} color="#e74c3c" />
-      <ProduceBin position={[-15.5, 0,  5]} color="#f39c12" />
-      <ProduceBin position={[-15.5, 0, -4]} color="#9b59b6" />
-      {/* Produce wall backing */}
-      <mesh position={[-18.8, 1.2, 1.5]}>
-        <boxGeometry args={[2.2, 2.4, 10]} />
+      {/* ── Produce section (left wall, near entrance) ──────────────── */}
+      <ProduceBin position={[-15.5, 0,  2]} color="#2ecc71" />
+      <ProduceBin position={[-15.5, 0,  5]} color="#e74c3c" />
+      <ProduceBin position={[-15.5, 0,  8]} color="#f39c12" />
+      <ProduceBin position={[-15.5, 0, -1]} color="#9b59b6" />
+      <ProduceBin position={[-15.5, 0, -4]} color="#e67e22" />
+      <mesh position={[-18.8, 1.2, 3.5]}>
+        <boxGeometry args={[2.2, 2.4, 14]} />
         <meshStandardMaterial color="#3a5c3a" roughness={0.9} />
       </mesh>
 
-      {/* ── Refrigerator section (back wall) ────────────────────────── */}
+      {/* ── Refrigerator wall (z ≈ -75.5) ───────────────────────────── */}
       {[-14, -10, -6, -2, 2, 6, 10, 14].map((x, i) => (
-        <FridgeUnit key={i} position={[x, 0, -23.5]} />
+        <FridgeUnit key={i} position={[x, 0, -75.5]} />
       ))}
-      {/* Fridge section floor strip */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, -23]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, -75]}>
         <planeGeometry args={[32, 1.5]} />
         <meshStandardMaterial color="#b8c8d8" roughness={0.3} metalness={0.1} />
       </mesh>
 
-      {/* ── Shopping trolleys ───────────────────────────────────────── */}
-      <Trolley position={[ 5, 0, 20]} rotation={0.3}  />
-      <Trolley position={[ 7, 0, 19]} rotation={0.1}  />
-      <Trolley position={[-5, 0, 20]} rotation={-0.2} />
-      <Trolley position={[-8, 0, 21]} rotation={0.5}  />
+      {/* ── Shopping trolleys (near entrance) ───────────────────────── */}
+      <Trolley position={[ 5, 0, 23]} rotation={0.3}  />
+      <Trolley position={[ 7, 0, 22]} rotation={0.1}  />
+      <Trolley position={[-5, 0, 23]} rotation={-0.2} />
+      <Trolley position={[-8, 0, 24]} rotation={0.5}  />
 
       {/* ── Aisle hanging signs ─────────────────────────────────────── */}
-      <AisleSign position={[-8,  3.85,  4]} line1="Aisle 1" line2="Tinned Goods · Canned Veg" />
-      <AisleSign position={[ 0,  3.85,  4]} line1="Aisle 2" line2="Cereals &amp; Breakfast"   color="#1a7a4a" />
-      <AisleSign position={[ 8,  3.85,  4]} line1="Aisle 3" line2="World Foods &amp; Baking"  color="#8e4400" />
-      <AisleSign position={[-18, 3.0,   2]} line1="🥦 Fresh Produce"                           color="#1a6b3c" />
-      <AisleSign position={[ 0,  3.5,  15]} line1="🛒 Checkouts"                               color="#333355" />
-      <AisleSign position={[-8,  3.85, -6]} line1="Aisle 1" line2="Pasta · Rice · Sauces" />
-      <AisleSign position={[ 8,  3.85, -6]} line1="Aisle 3" line2="Coconut · Spices · Oils"   color="#8e4400" />
-      <AisleSign position={[ 0,  3.85,-15]} line1="Aisle 2" line2="Biscuits · Snacks"          color="#1a7a4a" />
-      <AisleSign position={[ 0,  3.2, -22]} line1="❄️ Refrigerated"                            color="#2255aa" />
+      {/* Row 1 (z=6) */}
+      <AisleSign position={[-8,  3.85,  7]}  line1="Aisle 1" line2="Tinned Goods · Canned Veg" />
+      <AisleSign position={[ 0,  3.85,  7]}  line1="Aisle 2" line2="Cereals &amp; Breakfast"   color="#1a7a4a" />
+      <AisleSign position={[ 8,  3.85,  7]}  line1="Aisle 3" line2="World Foods &amp; Baking"  color="#8e4400" />
+      {/* Row 2 (z=-3) */}
+      <AisleSign position={[-8,  3.85, -2]}  line1="Aisle 1" line2="Pasta · Rice · Sauces" />
+      <AisleSign position={[ 0,  3.85, -2]}  line1="Aisle 2" line2="Biscuits · Snacks"         color="#1a7a4a" />
+      <AisleSign position={[ 8,  3.85, -2]}  line1="Aisle 3" line2="Coconut · Spices · Oils"   color="#8e4400" />
+      {/* Row 3 (z=-12) */}
+      <AisleSign position={[-8,  3.85, -11]} line1="Aisle 1" line2="Soups · Stocks · Sauces" />
+      <AisleSign position={[ 0,  3.85, -11]} line1="Aisle 2" line2="Spreads · Condiments"      color="#1a7a4a" />
+      <AisleSign position={[ 8,  3.85, -11]} line1="Aisle 3" line2="International Foods"       color="#8e4400" />
+      {/* Row 4 (z=-21) */}
+      <AisleSign position={[-8,  3.85, -20]} line1="Aisle 1" line2="Meat · Fish · Deli" />
+      <AisleSign position={[ 0,  3.85, -20]} line1="Aisle 2" line2="Dairy · Eggs · Cheese"     color="#1a7a4a" />
+      <AisleSign position={[ 8,  3.85, -20]} line1="Aisle 3" line2="Frozen Foods"              color="#2255aa" />
+      {/* Row 5 (z=-30) */}
+      <AisleSign position={[-8,  3.85, -29]} line1="Aisle 1" line2="Soft Drinks · Juices" />
+      <AisleSign position={[ 0,  3.85, -29]} line1="Aisle 2" line2="Tea · Coffee · Hot Drinks"  color="#1a7a4a" />
+      <AisleSign position={[ 8,  3.85, -29]} line1="Aisle 3" line2="Alcohol · Beer · Wine"     color="#8e4400" />
+      {/* Row 6 (z=-39) */}
+      <AisleSign position={[-8,  3.85, -38]} line1="Aisle 1" line2="Household · Cleaning" />
+      <AisleSign position={[ 0,  3.85, -38]} line1="Aisle 2" line2="Laundry · Paper Goods"     color="#1a7a4a" />
+      <AisleSign position={[ 8,  3.85, -38]} line1="Aisle 3" line2="Health &amp; Beauty"       color="#8e4400" />
+      {/* Rows 7–9 deep zone */}
+      <AisleSign position={[-8,  3.85, -47]} line1="Aisle 1" line2="Baby · Nappies · Formula" />
+      <AisleSign position={[ 0,  3.85, -47]} line1="Aisle 2" line2="Pet Food &amp; Accessories" color="#1a7a4a" />
+      <AisleSign position={[ 8,  3.85, -47]} line1="Aisle 3" line2="Pharmacy · Vitamins"       color="#8e4400" />
+      <AisleSign position={[-8,  3.85, -56]} line1="Aisle 1" line2="Stationery · Gifts" />
+      <AisleSign position={[ 8,  3.85, -56]} line1="Aisle 3" line2="Seasonal · Home Décor"     color="#8e4400" />
+      <AisleSign position={[-8,  3.85, -65]} line1="Aisle 1" line2="Electronics · Tech" />
+      <AisleSign position={[ 8,  3.85, -65]} line1="Aisle 3" line2="Clothing · Accessories"    color="#8e4400" />
+      {/* Special zone signs */}
+      <AisleSign position={[-18, 3.0,   4]}  line1="🥦 Fresh Produce"                           color="#1a6b3c" />
+      <AisleSign position={[ 0,  3.5,  18]}  line1="🛒 Checkouts"                               color="#333355" />
+      <AisleSign position={[ 0,  3.2, -73]}  line1="❄️ Refrigerated"                            color="#2255aa" />
 
-      {/* ── Bakery counter at back ───────────────────────────────────── */}
-      <mesh position={[0, 0.5, -24.2]} castShadow receiveShadow>
+      {/* ── Bakery counter (back of store near fridges) ──────────────── */}
+      <mesh position={[0, 0.5, -76.5]} castShadow receiveShadow>
         <boxGeometry args={[6, 1, 0.7]} />
         <meshStandardMaterial color="#8b6914" roughness={0.7} metalness={0.05} />
       </mesh>
-      <mesh position={[0, 1.04, -24.2]}>
+      <mesh position={[0, 1.04, -76.5]}>
         <boxGeometry args={[6, 0.05, 0.7]} />
         <meshStandardMaterial color="#c8a855" roughness={0.4} metalness={0.2} />
       </mesh>
-      {/* Bakery sign */}
-      <mesh position={[0, 4.2, -24.6]}>
+      <mesh position={[0, 4.2, -76.9]}>
         <boxGeometry args={[7, 0.9, 0.1]} />
         <meshStandardMaterial color="#7c5cfc" emissive="#7c5cfc" emissiveIntensity={0.35} roughness={0.6} />
       </mesh>
-      {/* Bakery items on display */}
       {[-2, -1, 0, 1, 2].map((x, i) => (
-        <mesh key={i} position={[x * 1.0, 1.22, -24.2]} castShadow>
+        <mesh key={i} position={[x, 1.22, -76.5]} castShadow>
           <sphereGeometry args={[0.18, 10, 6]} />
           <meshStandardMaterial color="#c8944a" roughness={0.8} />
         </mesh>
       ))}
 
       {/* ── Info board near entrance ─────────────────────────────────── */}
-      <mesh position={[-17, 1.4, 22]}>
+      <mesh position={[-17, 1.4, 25]}>
         <boxGeometry args={[0.08, 1.6, 1.1]} />
         <meshStandardMaterial color="#333" roughness={0.7} />
       </mesh>
-      <mesh position={[-17, 1.4, 22.05]}>
+      <mesh position={[-17, 1.4, 25.05]}>
         <boxGeometry args={[0.04, 1.4, 0.9]} />
         <meshStandardMaterial color="#2a4a2a" emissive="#1a3a1a" emissiveIntensity={0.2} roughness={0.8} />
       </mesh>

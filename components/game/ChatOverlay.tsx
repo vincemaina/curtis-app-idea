@@ -21,6 +21,66 @@ interface Props {
   inputRef: RefObject<HTMLInputElement | null>
 }
 
+// ── Procedural chat audio ──────────────────────────────────────────────────────
+function getCtx(ref: React.MutableRefObject<AudioContext | null>): AudioContext | null {
+  if (ref.current) return ref.current
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Ctor = window.AudioContext ?? (window as any).webkitAudioContext
+    ref.current = new Ctor()
+  } catch { /* noop */ }
+  return ref.current
+}
+
+// Short high-passed noise tick — soft keyboard click
+function playTypingClick(ctx: AudioContext) {
+  const len = Math.floor(ctx.sampleRate * 0.02)
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate)
+  const d   = buf.getChannelData(0)
+  for (let i = 0; i < len; i++) {
+    d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 5) * 0.07
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf
+  const hpf = ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 1400
+  src.connect(hpf); hpf.connect(ctx.destination)
+  src.start()
+}
+
+// Rising sine blip — confirms message sent
+function playSendBlip(ctx: AudioContext) {
+  const t   = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const g   = ctx.createGain()
+  osc.type  = 'sine'
+  osc.frequency.setValueAtTime(520, t)
+  osc.frequency.exponentialRampToValueAtTime(780, t + 0.07)
+  g.gain.setValueAtTime(0.07, t)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14)
+  osc.connect(g); g.connect(ctx.destination)
+  osc.start(t); osc.stop(t + 0.14)
+}
+
+// Band-passed noise burst — soft murmur of someone speaking
+function playReceiveMurmur(ctx: AudioContext) {
+  const t   = ctx.currentTime
+  const len = Math.floor(ctx.sampleRate * 0.45)
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate)
+  const d   = buf.getChannelData(0)
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1
+
+  const src = ctx.createBufferSource(); src.buffer = buf
+  const bpf = ctx.createBiquadFilter()
+  bpf.type = 'bandpass'; bpf.frequency.value = 800; bpf.Q.value = 3
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(0.05, t + 0.05)
+  g.gain.linearRampToValueAtTime(0.038, t + 0.25)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45)
+
+  src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
+  src.start(t)
+}
+
 export default function ChatOverlay({
   npc,
   messages,
@@ -30,11 +90,27 @@ export default function ChatOverlay({
   inputRef,
 }: Props) {
   const [input, setInput] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const bottomRef   = useRef<HTMLDivElement>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const prevMsgLen  = useRef(messages.length)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
+
+  // Play murmur whenever a new NPC message arrives
+  useEffect(() => {
+    const prev = prevMsgLen.current
+    const curr = messages.length
+    if (curr > prev) {
+      const newest = messages[curr - 1]
+      if (newest?.role === 'npc') {
+        const ctx = getCtx(audioCtxRef)
+        if (ctx) playReceiveMurmur(ctx)
+      }
+    }
+    prevMsgLen.current = curr
+  }, [messages])
 
   // Escape key closes the chat
   const handleClose = useCallback(() => onClose(), [onClose])
@@ -48,8 +124,16 @@ export default function ChatOverlay({
 
   const handleSend = () => {
     if (!input.trim() || isLoading) return
+    const ctx = getCtx(audioCtxRef)
+    if (ctx) playSendBlip(ctx)
     onSend(input.trim())
     setInput('')
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value)
+    const ctx = getCtx(audioCtxRef)
+    if (ctx) playTypingClick(ctx)
   }
 
   return (
@@ -152,7 +236,7 @@ export default function ChatOverlay({
               ref={inputRef}
               type="text"
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={handleChange}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder={`Say something to ${npc.name}…`}
               disabled={isLoading}

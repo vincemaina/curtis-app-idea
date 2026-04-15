@@ -6,6 +6,7 @@ import { PointerLockControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { NPC } from '@/lib/types'
 import type { SupermarketItem } from '@/lib/supermarket-items'
+import { COLLISION_BOXES, BOUNDS } from '@/lib/store-layout'
 
 type Keys = 'forward' | 'backward' | 'left' | 'right' | 'interact'
 
@@ -21,10 +22,18 @@ interface Props {
   onLockedChange: (locked: boolean) => void
 }
 
-const MOVE_SPEED     = 7
-const NPC_DIST       = 4.5
-const ITEM_DIST      = 2.8
-const BOUNDS = { xMin: -19, xMax: 19, zMin: -22, zMax: 22 }
+const MOVE_SPEED = 7
+const NPC_DIST   = 4.5
+const ITEM_DIST  = 2.8
+const PLAYER_R   = 0.45   // player collision radius
+
+// Axis-aligned collision check (XZ plane)
+function collides(x: number, z: number): boolean {
+  for (const [x1, z1, x2, z2] of COLLISION_BOXES) {
+    if (x > x1 && x < x2 && z > z1 && z < z2) return true
+  }
+  return false
+}
 
 // ── Procedural footstep sound ──────────────────────────────────────────────────
 function playFootstep(ctx: AudioContext) {
@@ -33,7 +42,7 @@ function playFootstep(ctx: AudioContext) {
   const d   = buf.getChannelData(0)
   for (let i = 0; i < len; i++) {
     // Noise burst that decays sharply — sounds like a soft footfall
-    d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.8) * 0.38
+    d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.8) * 0.17
   }
   const src = ctx.createBufferSource()
   src.buffer = buf
@@ -133,7 +142,7 @@ export default function PlayerController({
     const ctx  = audioCtxRef.current
 
     if (!chatOpen && controlsRef.current?.isLocked) {
-      // ── Movement ────────────────────────────────────────────────────────
+      // ── Movement with slide collision ───────────────────────────────────
       const moving = keys.forward || keys.backward || keys.left || keys.right
       if (moving) {
         camera.getWorldDirection(forwardVec.current)
@@ -142,10 +151,30 @@ export default function PlayerController({
         rightVec.current.crossVectors(forwardVec.current, UP.current)
 
         const speed = MOVE_SPEED * delta
-        if (keys.forward)  camera.position.addScaledVector(forwardVec.current,  speed)
-        if (keys.backward) camera.position.addScaledVector(forwardVec.current, -speed)
-        if (keys.right)    camera.position.addScaledVector(rightVec.current,    speed)
-        if (keys.left)     camera.position.addScaledVector(rightVec.current,   -speed)
+        const dx =
+          (keys.forward  ? forwardVec.current.x  : 0) +
+          (keys.backward ? -forwardVec.current.x : 0) +
+          (keys.right    ? rightVec.current.x    : 0) +
+          (keys.left     ? -rightVec.current.x   : 0)
+        const dz =
+          (keys.forward  ? forwardVec.current.z  : 0) +
+          (keys.backward ? -forwardVec.current.z : 0) +
+          (keys.right    ? rightVec.current.z    : 0) +
+          (keys.left     ? -rightVec.current.z   : 0)
+
+        const nx = camera.position.x + dx * speed
+        const nz = camera.position.z + dz * speed
+
+        // Diagonal move: try full, then slide on each axis separately
+        if (!collides(nx, nz)) {
+          camera.position.x = nx
+          camera.position.z = nz
+        } else if (!collides(nx, camera.position.z)) {
+          camera.position.x = nx        // slide along Z wall
+        } else if (!collides(camera.position.x, nz)) {
+          camera.position.z = nz        // slide along X wall
+        }
+        // else: fully blocked, stand still
       }
 
       // ── Footstep rhythm ─────────────────────────────────────────────────
@@ -156,7 +185,7 @@ export default function PlayerController({
           stepTimerRef.current = 0.38
         }
       } else if (!moving) {
-        stepTimerRef.current = 0.1  // short delay before first step on fresh movement
+        stepTimerRef.current = 0.1
       }
 
       // ── E key interaction ───────────────────────────────────────────────
@@ -195,7 +224,6 @@ export default function PlayerController({
     }
 
     // ── Floor lock + bounds ────────────────────────────────────────────────
-    // Screen shake — applied on top of the locked y=1.7
     if (shakeRef.current > 0.001) {
       camera.position.y  = 1.7 + (Math.random() - 0.5) * shakeRef.current
       camera.position.x += (Math.random() - 0.5) * shakeRef.current * 0.35
@@ -203,13 +231,13 @@ export default function PlayerController({
     } else {
       camera.position.y = 1.7
     }
-    camera.position.x = Math.max(BOUNDS.xMin, Math.min(BOUNDS.xMax, camera.position.x))
-    camera.position.z = Math.max(BOUNDS.zMin, Math.min(BOUNDS.zMax, camera.position.z))
+    camera.position.x = Math.max(BOUNDS.xMin + PLAYER_R, Math.min(BOUNDS.xMax - PLAYER_R, camera.position.x))
+    camera.position.z = Math.max(BOUNDS.zMin + PLAYER_R, Math.min(BOUNDS.zMax - PLAYER_R, camera.position.z))
 
-    // ── Fridge hum gain — fades in/out based on distance to refrigerators ─
+    // ── Fridge hum — fades in near the refrigerator wall (z ≈ -75.5) ─────
     if (fridgeGainRef.current && ctx) {
-      const distToFridge = Math.abs(camera.position.z - (-23.5))
-      const targetGain = Math.max(0, 0.055 - distToFridge * 0.0032)
+      const distToFridge = Math.abs(camera.position.z - (-75.5))
+      const targetGain   = Math.max(0, 0.028 - distToFridge * 0.0018)  // quieter overall
       fridgeGainRef.current.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.15)
     }
   })

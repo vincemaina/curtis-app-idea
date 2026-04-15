@@ -57,13 +57,14 @@ export default function World({
   return (
     <KeyboardControls map={KEY_MAP}>
       <Canvas
-        camera={{ fov: 75, near: 0.1, far: 200, position: [0, 1.7, 20] }}
+        camera={{ fov: 75, near: 0.1, far: 250, position: [0, 1.7, 23] }}
+        dpr={[1, 1.5]}
         shadows="soft"
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         style={{ width: '100vw', height: '100vh', display: 'block' }}
       >
         <Suspense fallback={null}>
-          <fog attach="fog" args={['#c4bdb4', 28, 58]} />
+          <fog attach="fog" args={['#c4bdb4', 38, 95]} />
           <Environment preset="warehouse" background={false} />
           <SupermarketScene />
 
@@ -102,7 +103,7 @@ export default function World({
           />
 
           <EffectComposer>
-            <N8AO aoRadius={3} intensity={1.2} distanceFalloff={0.5} />
+            <N8AO halfRes aoRadius={3} intensity={1.2} distanceFalloff={0.5} />
             <Bloom luminanceThreshold={0.55} luminanceSmoothing={0.9} intensity={0.45} />
             <ToneMapping mode={ToneMappingMode.AGX} />
           </EffectComposer>

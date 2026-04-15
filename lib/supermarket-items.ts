@@ -15,7 +15,7 @@ export const SUPERMARKET_ITEMS: SupermarketItem[] = [
     name: 'Chickpeas (400g)',
     emoji: '🥫',
     objectiveId: 'find-chickpeas',
-    position: [-10.5, 0.65, 0.6],   // Aisle 1, front of left shelf (row 1)
+    position: [-10.5, 0.65, 5.5],   // Aisle 1, row 1 (z=6), lower shelf
     aisleHint: 'Aisle 1 · Tinned Goods',
   },
   {
@@ -23,7 +23,7 @@ export const SUPERMARKET_ITEMS: SupermarketItem[] = [
     name: 'Tinned Tomatoes (400g)',
     emoji: '🍅',
     objectiveId: 'find-tomatoes',
-    position: [-5.8, 0.65, 0.6],    // Aisle 1, front of right shelf (row 1)
+    position: [-5.8, 0.65, 5.5],    // Aisle 1, row 1 (z=6), lower shelf
     aisleHint: 'Aisle 1 · Tinned Goods',
   },
   {
@@ -31,7 +31,7 @@ export const SUPERMARKET_ITEMS: SupermarketItem[] = [
     name: 'Coconut Milk (400ml)',
     emoji: '🥥',
     objectiveId: 'find-coconut',
-    position: [6.2, 1.3, -9.4],     // Aisle 3, middle shelf (row 2)
+    position: [6.2, 1.3, -12.5],    // Aisle 3, row 3 (z=-12), middle shelf
     aisleHint: 'Aisle 3 · World Foods & Baking',
   },
   {
@@ -39,7 +39,7 @@ export const SUPERMARKET_ITEMS: SupermarketItem[] = [
     name: 'Potatoes (500g)',
     emoji: '🥔',
     objectiveId: 'find-potatoes',
-    position: [-14.2, 0.62, 2.2],   // Fresh produce section
+    position: [-14.2, 0.62, 2.2],   // Fresh produce section (left wall)
     aisleHint: 'Fresh Produce',
   },
 ]

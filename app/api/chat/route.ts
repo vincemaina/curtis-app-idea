@@ -57,7 +57,7 @@ OUTPUT FIELDS:
 - emotion: the character's current emotion — one of: friendly|neutral|busy|stressed|sad|confused
 - objectivesCompleted: list of objective IDs genuinely completed by this exchange (usually empty)
 - conversationEnded: true only if the user said a proper goodbye and the conversation has naturally ended
-- moveTo: ONLY set this if you explicitly decide to go and physically walk to fetch an item right now (e.g. "I'll go grab that for you" / "Let me go get it"). Valid item IDs: "chickpeas", "tomatoes", "coconut", "potatoes". Omit otherwise.
+- moveTo: Set this when you physically decide to walk and retrieve an item — either (1) you spontaneously offer to fetch it ("I'll go grab that for you"), OR (2) the player tells you where an item is and you decide to go pick it up ("Oh brilliant, I'll head there now"). Valid item IDs: "chickpeas", "tomatoes", "coconut", "potatoes". Omit if you are only giving directions or not physically moving.
 
 OBJECTIVE COMPLETION RULES:
 - Only mark an objective as completed if the user has genuinely achieved it through the conversation.
