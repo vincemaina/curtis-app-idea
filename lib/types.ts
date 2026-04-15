@@ -2,6 +2,8 @@ export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
 export type NPCMood = 'friendly' | 'neutral' | 'busy' | 'stressed' | 'sad' | 'confused'
 export type ObjectiveType = 'primary' | 'bonus'
 
+export type HairStyle = 'bald' | 'short' | 'medium' | 'long' | 'ponytail' | 'afro' | 'wavy'
+
 export interface NPC {
   id: string
   name: string
@@ -14,6 +16,11 @@ export interface NPC {
   mood: NPCMood
   needsHelp?: string // what they need help with (for bonus objectives)
   helpSignals?: string[] // observable signs they need help
+  // Appearance
+  gender?: 'male' | 'female'
+  hairStyle?: HairStyle
+  hairColor?: string   // hex string, e.g. '#2c1a0e'
+  skinTone?: string    // hex string, default '#f0c8a0'
 }
 
 export interface Objective {

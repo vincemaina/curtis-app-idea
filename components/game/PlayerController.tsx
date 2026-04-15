@@ -6,11 +6,15 @@ import { PointerLockControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { NPC } from '@/lib/types'
 import type { SupermarketItem } from '@/lib/supermarket-items'
-import { COLLISION_BOXES, BOUNDS } from '@/lib/store-layout'
 
 type Keys = 'forward' | 'backward' | 'left' | 'right' | 'interact'
 
+interface Bounds { xMin: number; xMax: number; zMin: number; zMax: number }
+
 interface Props {
+  scenarioId: string
+  collisionBoxes: ReadonlyArray<readonly [number, number, number, number]>
+  bounds: Bounds
   npcs: NPC[]
   items: SupermarketItem[]
   collectedItemIds: string[]
@@ -27,13 +31,7 @@ const NPC_DIST   = 4.5
 const ITEM_DIST  = 2.8
 const PLAYER_R   = 0.45   // player collision radius
 
-// Axis-aligned collision check (XZ plane)
-function collides(x: number, z: number): boolean {
-  for (const [x1, z1, x2, z2] of COLLISION_BOXES) {
-    if (x > x1 && x < x2 && z > z1 && z < z2) return true
-  }
-  return false
-}
+// Axis-aligned collision check is now inlined in useFrame using collisionBoxesRef
 
 // ── Procedural footstep sound ──────────────────────────────────────────────────
 function playFootstep(ctx: AudioContext) {
@@ -55,6 +53,9 @@ function playFootstep(ctx: AudioContext) {
 }
 
 export default function PlayerController({
+  scenarioId,
+  collisionBoxes,
+  bounds,
   npcs,
   items,
   collectedItemIds,
@@ -65,6 +66,11 @@ export default function PlayerController({
   onCollectItem,
   onLockedChange,
 }: Props) {
+  // Keep refs so useFrame always sees the latest values without stale closures
+  const collisionBoxesRef = useRef(collisionBoxes)
+  const boundsRef         = useRef(bounds)
+  collisionBoxesRef.current = collisionBoxes
+  boundsRef.current         = bounds
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef     = useRef<any>(null)
   const interactPressed = useRef(false)
@@ -165,13 +171,22 @@ export default function PlayerController({
         const nx = camera.position.x + dx * speed
         const nz = camera.position.z + dz * speed
 
+        // Inline collision — uses ref so never stale
+        const boxes = collisionBoxesRef.current
+        const hit = (x: number, z: number) => {
+          for (const [x1, z1, x2, z2] of boxes) {
+            if (x > x1 && x < x2 && z > z1 && z < z2) return true
+          }
+          return false
+        }
+
         // Diagonal move: try full, then slide on each axis separately
-        if (!collides(nx, nz)) {
+        if (!hit(nx, nz)) {
           camera.position.x = nx
           camera.position.z = nz
-        } else if (!collides(nx, camera.position.z)) {
+        } else if (!hit(nx, camera.position.z)) {
           camera.position.x = nx        // slide along Z wall
-        } else if (!collides(camera.position.x, nz)) {
+        } else if (!hit(camera.position.x, nz)) {
           camera.position.z = nz        // slide along X wall
         }
         // else: fully blocked, stand still
@@ -231,13 +246,14 @@ export default function PlayerController({
     } else {
       camera.position.y = 1.7
     }
-    camera.position.x = Math.max(BOUNDS.xMin + PLAYER_R, Math.min(BOUNDS.xMax - PLAYER_R, camera.position.x))
-    camera.position.z = Math.max(BOUNDS.zMin + PLAYER_R, Math.min(BOUNDS.zMax - PLAYER_R, camera.position.z))
+    const b = boundsRef.current
+    camera.position.x = Math.max(b.xMin + PLAYER_R, Math.min(b.xMax - PLAYER_R, camera.position.x))
+    camera.position.z = Math.max(b.zMin + PLAYER_R, Math.min(b.zMax - PLAYER_R, camera.position.z))
 
-    // ── Fridge hum — fades in near the refrigerator wall (z ≈ -75.5) ─────
-    if (fridgeGainRef.current && ctx) {
+    // ── Fridge hum — supermarket only, fades in near refrigerator wall ────
+    if (scenarioId === 'supermarket' && fridgeGainRef.current && ctx) {
       const distToFridge = Math.abs(camera.position.z - (-75.5))
-      const targetGain   = Math.max(0, 0.028 - distToFridge * 0.0018)  // quieter overall
+      const targetGain   = Math.max(0, 0.028 - distToFridge * 0.0018)
       fridgeGainRef.current.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.15)
     }
   })

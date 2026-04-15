@@ -27,22 +27,29 @@ const MOOD_COLORS: Record<string, string> = {
   friendly: '#2ecc71', neutral: '#95a5a6', busy: '#f39c12',
   stressed: '#e74c3c', sad:      '#3498db', confused: '#e67e22',
 }
+// Outfit / body color per NPC id
 const NPC_BODY_COLORS: Record<string, string> = {
+  // Supermarket
   'store-employee':     '#1a6b3c',
   'couple':             '#8e44ad',
   'old-man':            '#c0392b',
   'young-professional': '#2980b9',
   'manager':            '#2c3e50',
+  // Underground (corrected IDs)
   'ticket-officer':     '#0d3b6e',
-  'commuter':           '#555',
+  'regular-commuter':   '#3d5a80',
   'tourist':            '#27ae60',
   'busker':             '#8e44ad',
-  'older-traveller':    '#c0392b',
-  'extrovert':          '#e67e22',
-  'colleague':          '#2980b9',
-  'nervous-cousin':     '#7f8c8d',
-  'parents-friend':     '#8e44ad',
-  'sharp-friend':       '#c0392b',
+  'lost-older-woman':   '#c0392b',
+  // Birthday party (corrected IDs + new)
+  'extrovert-friend':   '#e67e22',
+  'work-colleague':     '#2980b9',
+  'alexs-cousin':       '#7f8c8d',
+  'alexs-mum':          '#8e44ad',
+  'confident-stranger': '#c0392b',
+  'quiet-garden-friend':'#34495e',
+  'loud-neighbour':     '#e91e8c',
+  'alexs-sibling':      '#27ae60',
 }
 
 // ── Behaviour state machine types ─────────────────────────────────────────────
@@ -393,6 +400,9 @@ export default function NPCCharacter({
 
   const bodyColor = NPC_BODY_COLORS[npc.id] ?? '#555'
   const moodColor = MOOD_COLORS[npc.mood]   ?? '#95a5a6'
+  const skinColor = npc.skinTone ?? '#f0c8a0'
+  const hairColor = npc.hairColor ?? '#2c1a0e'
+  const hairStyle = npc.hairStyle ?? (npc.gender === 'female' ? 'long' : 'short')
 
   return (
     // No position prop — fully controlled by useFrame above
@@ -447,7 +457,7 @@ export default function NPCCharacter({
           {/* Hand */}
           <mesh position={[-0.1, -0.55, 0]}>
             <sphereGeometry args={[0.075, 6, 6]} />
-            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
+            <meshToonMaterial color={skinColor} gradientMap={toonGradient} />
           </mesh>
         </group>
 
@@ -460,7 +470,7 @@ export default function NPCCharacter({
           {/* Hand */}
           <mesh position={[0.1, -0.55, 0]}>
             <sphereGeometry args={[0.075, 6, 6]} />
-            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
+            <meshToonMaterial color={skinColor} gradientMap={toonGradient} />
           </mesh>
         </group>
 
@@ -469,13 +479,13 @@ export default function NPCCharacter({
           {/* Neck */}
           <mesh position={[0, -0.09, 0]}>
             <cylinderGeometry args={[0.1, 0.1, 0.18, 8]} />
-            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
+            <meshToonMaterial color={skinColor} gradientMap={toonGradient} />
           </mesh>
 
           {/* Head */}
           <mesh position={[0, 0.20, 0]} castShadow>
             <sphereGeometry args={[0.24, 8, 8]} />
-            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
+            <meshToonMaterial color={skinColor} gradientMap={toonGradient} />
             <Outlines thickness={0.025} color="#111" opacity={0.85} />
           </mesh>
 
@@ -494,6 +504,118 @@ export default function NPCCharacter({
               <meshToonMaterial color="#5a3a1a" gradientMap={toonGradient} />
             </mesh>
           ))}
+
+          {/* Mouth — shape driven by mood */}
+          {npc.mood === 'friendly' ? (
+            // Smile: two short angled segments forming a V
+            <>
+              <mesh position={[-0.033, 0.10, 0.224]} rotation={[0, 0,  0.55]}>
+                <boxGeometry args={[0.055, 0.016, 0.013]} />
+                <meshToonMaterial color="#5a3a2a" gradientMap={toonGradient} />
+              </mesh>
+              <mesh position={[ 0.033, 0.10, 0.224]} rotation={[0, 0, -0.55]}>
+                <boxGeometry args={[0.055, 0.016, 0.013]} />
+                <meshToonMaterial color="#5a3a2a" gradientMap={toonGradient} />
+              </mesh>
+            </>
+          ) : npc.mood === 'sad' ? (
+            // Frown: same V but inverted
+            <>
+              <mesh position={[-0.033, 0.095, 0.224]} rotation={[0, 0, -0.55]}>
+                <boxGeometry args={[0.055, 0.016, 0.013]} />
+                <meshToonMaterial color="#5a3a2a" gradientMap={toonGradient} />
+              </mesh>
+              <mesh position={[ 0.033, 0.095, 0.224]} rotation={[0, 0,  0.55]}>
+                <boxGeometry args={[0.055, 0.016, 0.013]} />
+                <meshToonMaterial color="#5a3a2a" gradientMap={toonGradient} />
+              </mesh>
+            </>
+          ) : npc.mood === 'stressed' || npc.mood === 'confused' ? (
+            // Tight flat line with slight frown ends
+            <mesh position={[0, 0.10, 0.224]}>
+              <boxGeometry args={[0.085, 0.013, 0.013]} />
+              <meshToonMaterial color="#5a3a2a" gradientMap={toonGradient} />
+            </mesh>
+          ) : (
+            // Neutral / busy: straight flat line
+            <mesh position={[0, 0.10, 0.224]}>
+              <boxGeometry args={[0.082, 0.015, 0.013]} />
+              <meshToonMaterial color="#5a3a2a" gradientMap={toonGradient} />
+            </mesh>
+          )}
+
+          {/* Hair — rendered on top of head */}
+          {hairStyle !== 'bald' && (
+            <>
+              {/* All styles share a base cap */}
+              <mesh position={[0, 0.30, 0]}>
+                <sphereGeometry args={[
+                  hairStyle === 'afro' ? 0.33 : 0.255,
+                  8, 6, 0, Math.PI * 2, 0,
+                  hairStyle === 'afro' ? Math.PI * 0.7 : Math.PI * 0.52,
+                ]} />
+                <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+              </mesh>
+
+              {/* Long hair: back panel + side curtains */}
+              {(hairStyle === 'long' || hairStyle === 'ponytail' || hairStyle === 'wavy') && (
+                <>
+                  <mesh position={[0, 0.0, -0.13]} rotation={[0.12, 0, 0]}>
+                    <boxGeometry args={[
+                      hairStyle === 'ponytail' ? 0.32 : 0.44,
+                      hairStyle === 'long' ? 0.62 : hairStyle === 'ponytail' ? 0.28 : 0.38,
+                      0.12,
+                    ]} />
+                    <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+                  </mesh>
+                  {/* Side curtains for long/wavy */}
+                  {hairStyle !== 'ponytail' && (
+                    <>
+                      <mesh position={[-0.21, 0.04, 0.0]} rotation={[0, 0, 0.22]}>
+                        <boxGeometry args={[0.1, 0.44, 0.14]} />
+                        <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+                      </mesh>
+                      <mesh position={[ 0.21, 0.04, 0.0]} rotation={[0, 0, -0.22]}>
+                        <boxGeometry args={[0.1, 0.44, 0.14]} />
+                        <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+                      </mesh>
+                    </>
+                  )}
+                  {/* Ponytail band + tail */}
+                  {hairStyle === 'ponytail' && (
+                    <>
+                      <mesh position={[0, 0.12, -0.24]}>
+                        <sphereGeometry args={[0.06, 6, 6]} />
+                        <meshToonMaterial color="#333" gradientMap={toonGradient} />
+                      </mesh>
+                      <mesh position={[0, -0.10, -0.3]} rotation={[-0.3, 0, 0]}>
+                        <cylinderGeometry args={[0.055, 0.038, 0.50, 6]} />
+                        <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+                      </mesh>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* Medium hair: two side lobes give fuller look */}
+              {hairStyle === 'medium' && (
+                <>
+                  <mesh position={[-0.20, 0.20, 0]} rotation={[0, 0, 0.25]}>
+                    <sphereGeometry args={[0.13, 6, 5, 0, Math.PI * 2, 0, Math.PI * 0.65]} />
+                    <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+                  </mesh>
+                  <mesh position={[ 0.20, 0.20, 0]} rotation={[0, 0, -0.25]}>
+                    <sphereGeometry args={[0.13, 6, 5, 0, Math.PI * 2, 0, Math.PI * 0.65]} />
+                    <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+                  </mesh>
+                  <mesh position={[0, 0.16, -0.12]}>
+                    <boxGeometry args={[0.38, 0.22, 0.1]} />
+                    <meshToonMaterial color={hairColor} gradientMap={toonGradient} />
+                  </mesh>
+                </>
+              )}
+            </>
+          )}
 
           {/* Mood dot */}
           <mesh position={[0, 0.61, 0]}>

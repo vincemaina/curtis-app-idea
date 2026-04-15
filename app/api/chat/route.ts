@@ -67,9 +67,9 @@ OUTPUT FIELDS:
 - emotion: the character's current emotion — one of: friendly|neutral|busy|stressed|sad|confused
 - objectivesCompleted: list of objective IDs genuinely completed by this exchange (usually empty)
 - conversationEnded: true only if the user said a proper goodbye and the conversation has naturally ended
-- moveTo: Set this when you know the exact item location and will physically walk there to retrieve it (e.g. "I'll go grab that for you"). Valid item IDs: "chickpeas", "tomatoes", "coconut", "potatoes". Omit if just giving directions.
+${scenarioId === 'supermarket' ? `- moveTo: Set this when you know the exact item location and will physically walk there to retrieve it (e.g. "I'll go grab that for you"). Valid item IDs: "chickpeas", "tomatoes", "coconut", "potatoes". Omit if just giving directions.
 - searchAisle: Set this (1, 2, or 3) when the player tells you which aisle an item is in and you decide to go check. Aisle 1 = Tinned Goods / Soups / Household (left side, x≈−8). Aisle 2 = Cereals / Dairy / Drinks (centre, x≈0). Aisle 3 = World Foods / Health / International (right side, x≈8). Requires seekingItem.
-- seekingItem: Required when searchAisle is set. The item ID you're heading to search for: "chickpeas", "tomatoes", "coconut", or "potatoes".
+- seekingItem: Required when searchAisle is set. The item ID you're heading to search for: "chickpeas", "tomatoes", "coconut", or "potatoes".` : ''}
 
 OBJECTIVE COMPLETION RULES:
 - Only mark an objective as completed if the user has genuinely achieved it through the conversation.
@@ -118,21 +118,23 @@ OBJECTIVE COMPLETION RULES:
               },
               objectivesCompleted: { type: 'array', items: { type: 'string' } },
               conversationEnded: { type: 'boolean' },
-              moveTo: {
-                type: 'string',
-                enum: ['chickpeas', 'tomatoes', 'coconut', 'potatoes'],
-                description: 'Item the NPC will physically walk to (knows exact location) — omit if not applicable',
-              },
-              searchAisle: {
-                type: 'integer',
-                enum: [1, 2, 3],
-                description: 'Aisle number the NPC will walk to based on player directions — requires seekingItem',
-              },
-              seekingItem: {
-                type: 'string',
-                enum: ['chickpeas', 'tomatoes', 'coconut', 'potatoes'],
-                description: 'Item the NPC is heading to search for — required when searchAisle is set',
-              },
+              ...(scenarioId === 'supermarket' ? {
+                moveTo: {
+                  type: 'string',
+                  enum: ['chickpeas', 'tomatoes', 'coconut', 'potatoes'],
+                  description: 'Item the NPC will physically walk to (knows exact location) — omit if not applicable',
+                },
+                searchAisle: {
+                  type: 'integer',
+                  enum: [1, 2, 3],
+                  description: 'Aisle number the NPC will walk to based on player directions — requires seekingItem',
+                },
+                seekingItem: {
+                  type: 'string',
+                  enum: ['chickpeas', 'tomatoes', 'coconut', 'potatoes'],
+                  description: 'Item the NPC is heading to search for — required when searchAisle is set',
+                },
+              } : {}),
             },
             required: ['dialogue', 'emotion', 'objectivesCompleted', 'conversationEnded'],
           },

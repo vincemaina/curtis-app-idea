@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { Scenario, GameState, Message, ChatResponse, NPCIntent } from '@/lib/types'
 import { SUPERMARKET_ITEMS } from '@/lib/supermarket-items'
+import { UNDERGROUND_ITEMS } from '@/lib/underground-layout'
 import { AISLE_WALKWAY_X, AISLE_SEARCH_Z } from '@/lib/store-layout'
 import ChatOverlay from './ChatOverlay'
 import GameHUD from './GameHUD'
@@ -43,8 +44,11 @@ export default function Game3D({ scenario }: Props) {
   const npcIntentsRef = useRef(npcIntents)
   npcIntentsRef.current = npcIntents
 
-  // Only show items for the supermarket scenario
-  const sceneItems = scenario.id === 'supermarket' ? SUPERMARKET_ITEMS : []
+  // Scene items vary by scenario
+  const sceneItems =
+    scenario.id === 'supermarket' ? SUPERMARKET_ITEMS :
+    scenario.id === 'underground' ? UNDERGROUND_ITEMS :
+    []
 
   // ── Chance events ──────────────────────────────────────────────
   useEffect(() => {

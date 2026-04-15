@@ -8,11 +8,35 @@ import { Suspense, useRef, useEffect } from 'react'
 import * as THREE from 'three'
 import type { Scenario, Message } from '@/lib/types'
 import type { SupermarketItem } from '@/lib/supermarket-items'
+import { BOUNDS as SUPERMARKET_BOUNDS, COLLISION_BOXES as SUPERMARKET_BOXES } from '@/lib/store-layout'
+import { BOUNDS as UNDERGROUND_BOUNDS, COLLISION_BOXES as UNDERGROUND_BOXES } from '@/lib/underground-layout'
+import { BOUNDS as PARTY_BOUNDS, COLLISION_BOXES as PARTY_BOXES } from '@/lib/party-layout'
 import SupermarketScene from './SupermarketScene'
+import UndergroundScene from './UndergroundScene'
+import PartyScene from './PartyScene'
 import NPCCharacter from './NPCCharacter'
 import CollectibleItem from './CollectibleItem'
 import PlayerController from './PlayerController'
 import { getNPCPosition } from '@/lib/npc-positions'
+
+// ── Per-scenario settings ─────────────────────────────────────────────────────
+const CAMERA_STARTS: Record<string, [number, number, number]> = {
+  supermarket:      [ 0,   1.7, 23],
+  underground:      [ 0,   1.7,  6],
+  'birthday-party': [-1,   1.7,  8],
+}
+
+const FOG_SETTINGS: Record<string, [string, number, number]> = {
+  supermarket:      ['#c4bdb4', 38, 95],
+  underground:      ['#1a1a2e',  8, 45],
+  'birthday-party': ['#e8d8c0', 18, 55],
+}
+
+function getLayoutForScenario(scenarioId: string) {
+  if (scenarioId === 'underground') return { bounds: UNDERGROUND_BOUNDS, collisionBoxes: UNDERGROUND_BOXES }
+  if (scenarioId === 'birthday-party') return { bounds: PARTY_BOUNDS, collisionBoxes: PARTY_BOXES }
+  return { bounds: SUPERMARKET_BOUNDS, collisionBoxes: SUPERMARKET_BOXES }
+}
 
 type KeyName = 'forward' | 'backward' | 'left' | 'right' | 'interact'
 
@@ -78,10 +102,14 @@ export default function World({
   // Shared ref so NPCs can register their live world positions
   const npcPositionsRef = useRef(new Map<string, THREE.Vector3>())
 
+  const cameraStart = CAMERA_STARTS[scenario.id] ?? [0, 1.7, 23]
+  const [fogColor, fogNear, fogFar] = FOG_SETTINGS[scenario.id] ?? ['#c4bdb4', 38, 95]
+  const { bounds, collisionBoxes } = getLayoutForScenario(scenario.id)
+
   return (
     <KeyboardControls map={KEY_MAP}>
       <Canvas
-        camera={{ fov: 75, near: 0.1, far: 250, position: [0, 1.7, 23] }}
+        camera={{ fov: 75, near: 0.1, far: 250, position: cameraStart }}
         dpr={1}          // PerformanceController handles actual pixel budget via gl.setSize
         shadows="soft"
         gl={{ antialias: false, powerPreference: 'high-performance' }}
@@ -91,9 +119,12 @@ export default function World({
           {/* Resolution + FPS controller — must be first so it captures the initial size */}
           <PerformanceController />
 
-          <fog attach="fog" args={['#c4bdb4', 38, 95]} />
+          <fog attach="fog" args={[fogColor, fogNear, fogFar]} />
           <Environment preset="warehouse" background={false} />
-          <SupermarketScene />
+
+          {scenario.id === 'supermarket'      && <SupermarketScene />}
+          {scenario.id === 'underground'      && <UndergroundScene />}
+          {scenario.id === 'birthday-party'   && <PartyScene />}
 
           {scenario.npcs.map(npc => (
             <NPCCharacter
@@ -119,6 +150,9 @@ export default function World({
           ))}
 
           <PlayerController
+            scenarioId={scenario.id}
+            collisionBoxes={collisionBoxes}
+            bounds={bounds}
             npcs={scenario.npcs}
             items={items}
             collectedItemIds={collectedItemIds}
