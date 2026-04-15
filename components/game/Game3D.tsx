@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { Scenario, GameState, Message, ChatResponse } from '@/lib/types'
+import { SUPERMARKET_ITEMS } from '@/lib/supermarket-items'
 import ChatOverlay from './ChatOverlay'
 import GameHUD from './GameHUD'
 
@@ -27,9 +28,13 @@ export default function Game3D({ scenario }: Props) {
     triggeredChanceEventIds: [],
     totalMessageCount: 0,
   })
-  const [isLoading,     setIsLoading]     = useState(false)
-  const [isLocked,      setIsLocked]      = useState(false)
-  const [newlyCompleted, setNewlyCompleted] = useState<string[]>([])
+  const [isLoading,       setIsLoading]       = useState(false)
+  const [isLocked,        setIsLocked]        = useState(false)
+  const [newlyCompleted,  setNewlyCompleted]  = useState<string[]>([])
+  const [collectedItemIds, setCollectedItemIds] = useState<string[]>([])
+
+  // Only show items for the supermarket scenario
+  const sceneItems = scenario.id === 'supermarket' ? SUPERMARKET_ITEMS : []
 
   // ── Chance events ──────────────────────────────────────────────
   useEffect(() => {
@@ -157,6 +162,23 @@ export default function Game3D({ scenario }: Props) {
     [gameState, isLoading, scenario],
   )
 
+  const handleCollectItem = useCallback((itemId: string) => {
+    const item = sceneItems.find(i => i.id === itemId)
+    if (!item || collectedItemIds.includes(itemId)) return
+
+    setCollectedItemIds(prev => [...prev, itemId])
+
+    // Mark the linked objective complete if not already done
+    if (!gameState.completedObjectiveIds.includes(item.objectiveId)) {
+      setGameState(prev => ({
+        ...prev,
+        completedObjectiveIds: [...prev.completedObjectiveIds, item.objectiveId],
+      }))
+      setNewlyCompleted([item.objectiveId])
+      setTimeout(() => setNewlyCompleted([]), 3000)
+    }
+  }, [sceneItems, collectedItemIds, gameState.completedObjectiveIds])
+
   const handleFinish = useCallback(() => {
     sessionStorage.setItem(
       'gameResult',
@@ -178,8 +200,11 @@ export default function Game3D({ scenario }: Props) {
       <World
         scenario={scenario}
         conversations={gameState.conversations}
+        items={sceneItems}
+        collectedItemIds={collectedItemIds}
         chatOpen={chatOpen}
         onTalkToNPC={handleTalkToNPC}
+        onCollectItem={handleCollectItem}
         onLockedChange={setIsLocked}
       />
 

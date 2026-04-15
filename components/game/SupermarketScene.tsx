@@ -1,6 +1,54 @@
 'use client'
 
 import * as THREE from 'three'
+import { Html } from '@react-three/drei'
+
+// ── Aisle hanging sign ──────────────────────────────────────────
+function AisleSign({
+  position,
+  line1,
+  line2,
+  color = '#7c5cfc',
+}: {
+  position: [number, number, number]
+  line1: string
+  line2?: string
+  color?: string
+}) {
+  return (
+    <group position={position}>
+      {/* Board */}
+      <mesh>
+        <boxGeometry args={[3.4, 0.72, 0.1]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.25} />
+      </mesh>
+      {/* Hanging rod */}
+      <mesh position={[0, 0.55, 0]}>
+        <boxGeometry args={[0.06, 0.6, 0.06]} />
+        <meshStandardMaterial color="#888" />
+      </mesh>
+      {/* Text rendered via Html */}
+      <Html position={[0, 0, 0.06]} center distanceFactor={14} zIndexRange={[0, 2]}>
+        <div
+          style={{
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: '15px',
+            lineHeight: 1.3,
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+          }}
+        >
+          {line1}
+          {line2 && <div style={{ fontSize: '12px', opacity: 0.8 }}>{line2}</div>}
+        </div>
+      </Html>
+    </group>
+  )
+}
 
 // A single shelf unit: frame + 3 shelf levels + coloured product boxes
 function ShelfUnit({
@@ -199,6 +247,22 @@ export default function SupermarketScene() {
       <ProduceBin position={[-14, 0, -3]} color="#2ecc71" />
       <ProduceBin position={[-14, 0,  0]} color="#e74c3c" />
       <ProduceBin position={[-14, 0,  3]} color="#f39c12" />
+
+      {/* ── Aisle hanging signs ── */}
+      {/* Aisle 1 — Tinned Goods (gap between x=-12 shelf and x=-4 shelf, centred x=-8) */}
+      <AisleSign position={[-8, 3.85, 2]}  line1="Aisle 1" line2="Tinned Goods · Canned Veg" />
+      {/* Aisle 2 — Cereals (centre gap, x=0) */}
+      <AisleSign position={[ 0, 3.85, 2]}  line1="Aisle 2" line2="Cereals &amp; Breakfast"    color="#1a7a4a" />
+      {/* Aisle 3 — World Foods (gap between x=4 and x=12 shelves, centred x=8) */}
+      <AisleSign position={[ 8, 3.85, 2]}  line1="Aisle 3" line2="World Foods &amp; Baking"   color="#8e4400" />
+      {/* Fresh produce section (left wall) */}
+      <AisleSign position={[-16, 3.2, 2]}  line1="🥦 Fresh Produce"                            color="#1a6b3c" />
+      {/* Checkout area */}
+      <AisleSign position={[ 0, 3.5, 14]} line1="🛒 Checkouts"                                color="#333355" />
+
+      {/* Row 2 signs (deeper in the store) */}
+      <AisleSign position={[-8, 3.85, -8]}  line1="Aisle 1" line2="Pasta · Rice · Sauces"    />
+      <AisleSign position={[ 8, 3.85, -8]}  line1="Aisle 3" line2="Coconut · Spices · Oils"  color="#8e4400" />
 
       {/* ── Bakery sign at the back ── */}
       <mesh position={[0, 4.2, -22.6]}>

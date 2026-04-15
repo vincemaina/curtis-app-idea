@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, type RefObject } from 'react'
+import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import type { NPC, Message } from '@/lib/types'
 
 const MOOD_BADGE: Record<string, string> = {
@@ -35,6 +35,16 @@ export default function ChatOverlay({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
+
+  // Escape key closes the chat
+  const handleClose = useCallback(() => onClose(), [onClose])
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [handleClose])
 
   const handleSend = () => {
     if (!input.trim() || isLoading) return
