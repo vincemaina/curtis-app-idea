@@ -299,6 +299,172 @@ function FridgeUnit({ position }: { position: [number, number, number] }) {
   )
 }
 
+// ── Instanced fridge wall ────────────────────────────────────────────────────
+// All 8 units share identical geometry → 6 draw calls instead of ~96.
+const FRIDGE_POS_XS   = [-14, -10, -6, -2, 2, 6, 10, 14] as const
+const FRIDGE_Z_POS    = -75.5
+const FRIDGE_SHELF_YS = [0.4, 0.9, 1.4, 1.9] as const
+const FRIDGE_PROD_XS  = [-0.5, -0.15, 0.2, 0.55] as const
+
+function FridgeWall() {
+  const groupRef = useRef<THREE.Group>(null)
+
+  useEffect(() => {
+    const group = groupRef.current
+    if (!group) return
+    const disposed: (THREE.BufferGeometry | THREE.Material)[] = []
+    const m4  = new THREE.Matrix4()
+    const col = new THREE.Color()
+    const n   = FRIDGE_POS_XS.length
+
+    const spawn = (
+      geo: THREE.BufferGeometry,
+      mat: THREE.Material,
+      count: number,
+      fill: (mesh: THREE.InstancedMesh) => void,
+      opts?: { cast?: boolean; recv?: boolean },
+    ) => {
+      const mesh = new THREE.InstancedMesh(geo, mat, count)
+      if (opts?.cast) mesh.castShadow = true
+      if (opts?.recv) mesh.receiveShadow = true
+      fill(mesh)
+      mesh.instanceMatrix.needsUpdate = true
+      group.add(mesh)
+      disposed.push(geo, mat)
+    }
+
+    spawn(
+      new THREE.BoxGeometry(1.8, 2.3, 0.55),
+      new THREE.MeshStandardMaterial({ color: '#c8d0d8', roughness: 0.25, metalness: 0.5 }),
+      n,
+      mesh => FRIDGE_POS_XS.forEach((x, i) => { m4.setPosition(x, 1.15, FRIDGE_Z_POS); mesh.setMatrixAt(i, m4) }),
+      { cast: true, recv: true },
+    )
+    spawn(
+      new THREE.BoxGeometry(1.6, 2.0, 0.04),
+      new THREE.MeshStandardMaterial({ color: '#a8c8e8', transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.1 }),
+      n,
+      mesh => FRIDGE_POS_XS.forEach((x, i) => { m4.setPosition(x, 1.1, FRIDGE_Z_POS + 0.29); mesh.setMatrixAt(i, m4) }),
+    )
+    spawn(
+      new THREE.BoxGeometry(1.65, 2.05, 0.03),
+      new THREE.MeshStandardMaterial({ color: '#a0a8b0', roughness: 0.3, metalness: 0.6, wireframe: true }),
+      n,
+      mesh => FRIDGE_POS_XS.forEach((x, i) => { m4.setPosition(x, 1.1, FRIDGE_Z_POS + 0.3); mesh.setMatrixAt(i, m4) }),
+    )
+    spawn(
+      new THREE.CylinderGeometry(0.018, 0.018, 1.4, 8),
+      new THREE.MeshStandardMaterial({ color: '#888', metalness: 0.8, roughness: 0.2 }),
+      n,
+      mesh => FRIDGE_POS_XS.forEach((x, i) => { m4.setPosition(x + 0.7, 1.1, FRIDGE_Z_POS + 0.33); mesh.setMatrixAt(i, m4) }),
+    )
+    spawn(
+      new THREE.BoxGeometry(1.5, 0.04, 0.38),
+      new THREE.MeshStandardMaterial({ color: '#d0d8e0', roughness: 0.4, metalness: 0.3 }),
+      n * FRIDGE_SHELF_YS.length,
+      mesh => FRIDGE_POS_XS.forEach((x, fi) =>
+        FRIDGE_SHELF_YS.forEach((y, si) => { m4.setPosition(x, y, FRIDGE_Z_POS); mesh.setMatrixAt(fi * FRIDGE_SHELF_YS.length + si, m4) }),
+      ),
+    )
+
+    // Interior products — 128 instances, per-instance color
+    const totalProds = n * FRIDGE_SHELF_YS.length * FRIDGE_PROD_XS.length
+    const prodGeo    = new THREE.CylinderGeometry(0.07, 0.07, 0.22, 8)
+    const prodMat    = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.1 })
+    const prodMesh   = new THREE.InstancedMesh(prodGeo, prodMat, totalProds)
+    FRIDGE_POS_XS.forEach((x, fi) =>
+      FRIDGE_SHELF_YS.forEach((y, si) =>
+        FRIDGE_PROD_XS.forEach((px, pi) => {
+          const idx = fi * (FRIDGE_SHELF_YS.length * FRIDGE_PROD_XS.length) + si * FRIDGE_PROD_XS.length + pi
+          m4.setPosition(x + px, y + 0.13, FRIDGE_Z_POS)
+          prodMesh.setMatrixAt(idx, m4)
+          col.set(PRODUCT_COLORS[(si * 7 + pi * 3) % PRODUCT_COLORS.length])
+          prodMesh.setColorAt(idx, col)
+        }),
+      ),
+    )
+    prodMesh.instanceMatrix.needsUpdate = true
+    if (prodMesh.instanceColor) prodMesh.instanceColor.needsUpdate = true
+    group.add(prodMesh)
+    disposed.push(prodGeo, prodMat)
+
+    return () => {
+      while (group.children.length > 0) group.remove(group.children[0])
+      disposed.forEach(d => d.dispose())
+    }
+  }, [])
+
+  return <group ref={groupRef} />
+}
+
+// ── Instanced produce bins ────────────────────────────────────────────────────
+// 5 bins → 3 draw calls instead of 60.
+const PRODUCE_BIN_DEFS = [
+  { z:  2, color: '#2ecc71' },
+  { z:  5, color: '#e74c3c' },
+  { z:  8, color: '#f39c12' },
+  { z: -1, color: '#9b59b6' },
+  { z: -4, color: '#e67e22' },
+] as const
+const PRODUCE_BIN_X = -15.5
+
+function ProduceBins() {
+  const groupRef = useRef<THREE.Group>(null)
+
+  useEffect(() => {
+    const group = groupRef.current
+    if (!group) return
+    const disposed: (THREE.BufferGeometry | THREE.Material)[] = []
+    const m4  = new THREE.Matrix4()
+    const col = new THREE.Color()
+    const n   = PRODUCE_BIN_DEFS.length
+
+    // Bin crates
+    const bodyGeo  = new THREE.BoxGeometry(1.4, 0.6, 1)
+    const bodyMat  = new THREE.MeshStandardMaterial({ color: '#6b4226', roughness: 0.9 })
+    const bodyMesh = new THREE.InstancedMesh(bodyGeo, bodyMat, n)
+    bodyMesh.castShadow = bodyMesh.receiveShadow = true
+    PRODUCE_BIN_DEFS.forEach(({ z }, i) => { m4.setPosition(PRODUCE_BIN_X, 0.3, z); bodyMesh.setMatrixAt(i, m4) })
+    bodyMesh.instanceMatrix.needsUpdate = true
+    group.add(bodyMesh)
+    disposed.push(bodyGeo, bodyMat)
+
+    // Price labels
+    const labelGeo  = new THREE.BoxGeometry(1.2, 0.18, 0.02)
+    const labelMat  = new THREE.MeshStandardMaterial({ color: '#fff8e0', roughness: 1 })
+    const labelMesh = new THREE.InstancedMesh(labelGeo, labelMat, n)
+    PRODUCE_BIN_DEFS.forEach(({ z }, i) => { m4.setPosition(PRODUCE_BIN_X, 0.22, z + 0.52); labelMesh.setMatrixAt(i, m4) })
+    labelMesh.instanceMatrix.needsUpdate = true
+    group.add(labelMesh)
+    disposed.push(labelGeo, labelMat)
+
+    // Produce spheres — 50 instances, per-instance color
+    const sphereGeo  = new THREE.SphereGeometry(0.14, 8, 8)
+    const sphereMat  = new THREE.MeshStandardMaterial({ roughness: 0.6 })
+    const sphereMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, n * 10)
+    sphereMesh.castShadow = true
+    PRODUCE_BIN_DEFS.forEach(({ z, color }, bi) => {
+      col.set(color)
+      for (let si = 0; si < 10; si++) {
+        m4.setPosition(PRODUCE_BIN_X + ((si % 4) - 1.5) * 0.32, 0.73, z + Math.floor(si / 4) * 0.36 - 0.18)
+        sphereMesh.setMatrixAt(bi * 10 + si, m4)
+        sphereMesh.setColorAt(bi * 10 + si, col)
+      }
+    })
+    sphereMesh.instanceMatrix.needsUpdate = true
+    if (sphereMesh.instanceColor) sphereMesh.instanceColor.needsUpdate = true
+    group.add(sphereMesh)
+    disposed.push(sphereGeo, sphereMat)
+
+    return () => {
+      while (group.children.length > 0) group.remove(group.children[0])
+      disposed.forEach(d => d.dispose())
+    }
+  }, [])
+
+  return <group ref={groupRef} />
+}
+
 // ── Shopping trolley ───────────────────────────────────────────────────────────
 function Trolley({ position, rotation = 0 }: {
   position: [number, number, number]
@@ -626,20 +792,14 @@ export default function SupermarketScene() {
       ))}
 
       {/* ── Produce section (left wall, near entrance) ──────────────── */}
-      <ProduceBin position={[-15.5, 0,  2]} color="#2ecc71" />
-      <ProduceBin position={[-15.5, 0,  5]} color="#e74c3c" />
-      <ProduceBin position={[-15.5, 0,  8]} color="#f39c12" />
-      <ProduceBin position={[-15.5, 0, -1]} color="#9b59b6" />
-      <ProduceBin position={[-15.5, 0, -4]} color="#e67e22" />
+      <ProduceBins />
       <mesh position={[-18.8, 1.2, 3.5]}>
         <boxGeometry args={[2.2, 2.4, 14]} />
         <meshStandardMaterial color="#3a5c3a" roughness={0.9} />
       </mesh>
 
-      {/* ── Refrigerator wall (z ≈ -75.5) ───────────────────────────── */}
-      {[-14, -10, -6, -2, 2, 6, 10, 14].map((x, i) => (
-        <FridgeUnit key={i} position={[x, 0, -75.5]} />
-      ))}
+      {/* ── Refrigerator wall (z ≈ -75.5) — instanced ──────────────── */}
+      <FridgeWall />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, -75]}>
         <planeGeometry args={[32, 1.5]} />
         <meshStandardMaterial color="#b8c8d8" roughness={0.3} metalness={0.1} />
