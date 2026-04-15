@@ -74,6 +74,16 @@ export default function NPCCharacter({
   const groupRef   = useRef<THREE.Group>(null)
   const meshRef    = useRef<THREE.Group>(null)  // body sub-group for bob
 
+  // Limb pivot groups — animated each frame
+  const legLRef    = useRef<THREE.Group>(null)
+  const legRRef    = useRef<THREE.Group>(null)
+  const armLRef    = useRef<THREE.Group>(null)
+  const armRRef    = useRef<THREE.Group>(null)
+
+  // Walk-cycle state
+  const walkPhaseRef = useRef(0)   // phase advances only while moving
+  const swingRef     = useRef(0)   // current limb swing angle (lerped)
+
   // Live world position (updated each frame, shared via npcPositionsRef)
   const posRef     = useRef(new THREE.Vector3(initialPosition[0], 0, initialPosition[2]))
   const facingRef  = useRef(0)                  // current Y rotation (radians)
@@ -231,6 +241,23 @@ export default function NPCCharacter({
     const bobAmp   = moved ? 0.055 : 0.025
     const bobFreq  = moved ? 3.5   : 1.5
     meshRef.current.position.y = Math.sin(t * bobFreq + initialPosition[0]) * bobAmp
+
+    // Walk-cycle limb animation
+    if (moved) {
+      walkPhaseRef.current += delta * 5.5
+      swingRef.current = THREE.MathUtils.lerp(
+        swingRef.current,
+        Math.sin(walkPhaseRef.current) * 0.52,
+        18 * delta,
+      )
+    } else {
+      swingRef.current = THREE.MathUtils.lerp(swingRef.current, 0, 9 * delta)
+    }
+    const sw = swingRef.current
+    if (legLRef.current) legLRef.current.rotation.x =  sw
+    if (legRRef.current) legRRef.current.rotation.x = -sw
+    if (armLRef.current) armLRef.current.rotation.x = -sw * 0.42
+    if (armRRef.current) armRRef.current.rotation.x =  sw * 0.42
   })
 
   const bodyColor = NPC_BODY_COLORS[npc.id] ?? '#555'
@@ -247,57 +274,99 @@ export default function NPCCharacter({
 
       {/* Body sub-group (bobs independently) */}
       <group ref={meshRef}>
-        {/* Legs */}
-        {([-0.13, 0.13] as const).map(x => (
-          <mesh key={x} position={[x, 0.45, 0]}>
-            <cylinderGeometry args={[0.09, 0.09, 0.9, 8]} />
-            <meshStandardMaterial color="#222" />
+        {/* Left leg — pivot at hip */}
+        <group ref={legLRef} position={[-0.13, 0.92, 0]}>
+          <mesh position={[0, -0.45, 0]} castShadow>
+            <cylinderGeometry args={[0.085, 0.085, 0.9, 8]} />
+            <meshStandardMaterial color="#1a1a2e" roughness={0.9} />
           </mesh>
-        ))}
+          {/* Foot */}
+          <mesh position={[0, -0.93, 0.06]}>
+            <boxGeometry args={[0.14, 0.1, 0.24]} />
+            <meshStandardMaterial color="#111" roughness={0.8} />
+          </mesh>
+        </group>
+
+        {/* Right leg — pivot at hip */}
+        <group ref={legRRef} position={[0.13, 0.92, 0]}>
+          <mesh position={[0, -0.45, 0]} castShadow>
+            <cylinderGeometry args={[0.085, 0.085, 0.9, 8]} />
+            <meshStandardMaterial color="#1a1a2e" roughness={0.9} />
+          </mesh>
+          {/* Foot */}
+          <mesh position={[0, -0.93, 0.06]}>
+            <boxGeometry args={[0.14, 0.1, 0.24]} />
+            <meshStandardMaterial color="#111" roughness={0.8} />
+          </mesh>
+        </group>
 
         {/* Body */}
-        <mesh position={[0, 1.15, 0]}>
-          <cylinderGeometry args={[0.27, 0.31, 0.72, 10]} />
-          <meshStandardMaterial color={bodyColor} />
+        <mesh position={[0, 1.15, 0]} castShadow>
+          <cylinderGeometry args={[0.27, 0.31, 0.72, 12]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.75} />
         </mesh>
 
-        {/* Arms */}
-        <mesh position={[-0.42, 1.1, 0]} rotation={[0, 0, 0.5]}>
-          <cylinderGeometry args={[0.07, 0.07, 0.6, 8]} />
-          <meshStandardMaterial color={bodyColor} />
-        </mesh>
-        <mesh position={[0.42, 1.1, 0]} rotation={[0, 0, -0.5]}>
-          <cylinderGeometry args={[0.07, 0.07, 0.6, 8]} />
-          <meshStandardMaterial color={bodyColor} />
-        </mesh>
+        {/* Left arm — pivot at shoulder */}
+        <group ref={armLRef} position={[-0.38, 1.46, 0]}>
+          <mesh position={[0, -0.28, 0]} rotation={[0, 0, 0.38]} castShadow>
+            <cylinderGeometry args={[0.07, 0.065, 0.58, 8]} />
+            <meshStandardMaterial color={bodyColor} roughness={0.75} />
+          </mesh>
+          {/* Hand */}
+          <mesh position={[-0.1, -0.55, 0]}>
+            <sphereGeometry args={[0.075, 8, 8]} />
+            <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
+          </mesh>
+        </group>
+
+        {/* Right arm — pivot at shoulder */}
+        <group ref={armRRef} position={[0.38, 1.46, 0]}>
+          <mesh position={[0, -0.28, 0]} rotation={[0, 0, -0.38]} castShadow>
+            <cylinderGeometry args={[0.07, 0.065, 0.58, 8]} />
+            <meshStandardMaterial color={bodyColor} roughness={0.75} />
+          </mesh>
+          {/* Hand */}
+          <mesh position={[0.1, -0.55, 0]}>
+            <sphereGeometry args={[0.075, 8, 8]} />
+            <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
+          </mesh>
+        </group>
 
         {/* Neck */}
         <mesh position={[0, 1.58, 0]}>
-          <cylinderGeometry args={[0.1, 0.1, 0.16, 8]} />
-          <meshStandardMaterial color="#f0c8a0" />
+          <cylinderGeometry args={[0.1, 0.1, 0.18, 8]} />
+          <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
         </mesh>
 
         {/* Head */}
-        <mesh position={[0, 1.85, 0]}>
-          <sphereGeometry args={[0.24, 12, 12]} />
-          <meshStandardMaterial color="#f0c8a0" />
+        <mesh position={[0, 1.87, 0]} castShadow>
+          <sphereGeometry args={[0.24, 14, 14]} />
+          <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
         </mesh>
 
         {/* Eyes */}
         {([-0.09, 0.09] as const).map(x => (
-          <mesh key={x} position={[x, 1.88, 0.21]}>
-            <sphereGeometry args={[0.04, 8, 8]} />
-            <meshStandardMaterial color="#222" />
+          <mesh key={x} position={[x, 1.90, 0.21]}>
+            <sphereGeometry args={[0.038, 8, 8]} />
+            <meshStandardMaterial color="#1a1a2e" roughness={0.5} />
+          </mesh>
+        ))}
+
+        {/* Eyebrows */}
+        {([-0.09, 0.09] as const).map(x => (
+          <mesh key={x} position={[x, 1.97, 0.2]} rotation={[0.2, 0, 0]}>
+            <boxGeometry args={[0.065, 0.018, 0.015]} />
+            <meshStandardMaterial color="#5a3a1a" roughness={1} />
           </mesh>
         ))}
 
         {/* Mood dot */}
-        <mesh position={[0, 2.26, 0]}>
-          <sphereGeometry args={[0.09, 8, 8]} />
+        <mesh position={[0, 2.28, 0]}>
+          <sphereGeometry args={[0.085, 8, 8]} />
           <meshStandardMaterial
             color={moodColor}
             emissive={moodColor}
-            emissiveIntensity={0.7}
+            emissiveIntensity={0.9}
           />
         </mesh>
       </group>

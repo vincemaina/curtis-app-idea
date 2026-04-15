@@ -54,10 +54,12 @@ export default function World({
     <KeyboardControls map={KEY_MAP}>
       <Canvas
         camera={{ fov: 75, near: 0.1, far: 200, position: [0, 1.7, 20] }}
+        shadows="soft"
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         style={{ width: '100vw', height: '100vh', display: 'block' }}
       >
         <Suspense fallback={null}>
+          <fog attach="fog" args={['#c4bdb4', 28, 58]} />
           <SupermarketScene />
 
           {scenario.npcs.map(npc => (
