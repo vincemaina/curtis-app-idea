@@ -94,8 +94,8 @@ export default function GameHUD({
         </div>
       )}
 
-      {/* ── Objectives panel — z-50 so it floats above the chat backdrop ── */}
-      <div className="absolute bottom-5 left-4 max-w-xs" style={{ zIndex: 50 }}>
+      {/* ── Objectives panel — top-left so it doesn't overlap the bottom chat window ── */}
+      <div className="absolute top-14 left-4 max-w-xs" style={{ zIndex: 50 }}>
         <div
           className="rounded-xl p-3 space-y-1.5"
           style={{
