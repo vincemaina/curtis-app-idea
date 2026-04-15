@@ -276,6 +276,42 @@ export default function Game3D({ scenario }: Props) {
     }
   }, [sceneItems, collectedItemIds, gameState.completedObjectiveIds])
 
+  // Stale-closure-safe ref for gameState (used in proximity callback)
+  const gameStateRef = useRef(gameState)
+  gameStateRef.current = gameState
+
+  // ── NPC proximity trigger ──────────────────────────────────────
+  // Fires once when the player first walks within APPROACH_DIST of an NPC.
+  // Used to trigger Jim's greeting when the player physically finds him.
+  const handleNPCProximity = useCallback((npcId: string) => {
+    const gs = gameStateRef.current
+    // Only Jim has a proximity greeting in this scenario
+    const event = scenario.chanceEvents.find(e => e.npcId === npcId)
+    if (!event) return
+    // Already triggered, or another chat is open — skip
+    if (gs.triggeredChanceEventIds.includes(event.id)) return
+    if (gs.activeNpcId) return
+
+    const npcMsg: Message = {
+      id: `event-${event.id}`,
+      role: 'npc',
+      content: event.npcMessage,
+      npcId: event.npcId,
+      npcName: scenario.npcs.find(n => n.id === event.npcId)?.name ?? '',
+      timestamp: Date.now(),
+    }
+    setGameState(prev => ({
+      ...prev,
+      triggeredChanceEventIds: [...prev.triggeredChanceEventIds, event.id],
+      activeNpcId: event.npcId,
+      conversations: {
+        ...prev.conversations,
+        [event.npcId]: [...(prev.conversations[event.npcId] ?? []), npcMsg],
+      },
+    }))
+    setTimeout(() => inputRef.current?.focus(), 150)
+  }, [scenario])
+
   const handleFinish = useCallback(() => {
     sessionStorage.setItem(
       'gameResult',
@@ -307,6 +343,7 @@ export default function Game3D({ scenario }: Props) {
         onCollectItem={handleCollectItem}
         onLockedChange={setIsLocked}
         onTargetReached={handleTargetReached}
+        onNPCProximity={handleNPCProximity}
       />
 
       {/* HUD overlays */}

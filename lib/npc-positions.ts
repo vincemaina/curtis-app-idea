@@ -60,30 +60,23 @@ export const NPC_PATROLS: Record<string, Record<string, [number, number, number]
       [-6, 0, -30],
       [-6, 0, -21],
     ],
-    // Priya: small lost wandering near produce bins (left wall, z=−2 to −5)
+    // Priya: stressed pacing — two points, quick back-and-forth near produce
     'young-professional': [
       [-14, 0, -1],
-      [-15, 0, -1],
-      [-15, 0, -5],
       [-14, 0, -5],
     ],
-    // Jim: slow shuffle deep in store, rows 7–8 (z=-48 to -57)
-    'old-man': [
-      [ 8, 0, -48],
-      [ 9, 0, -48],
-      [ 9, 0, -57],
-      [ 8, 0, -57],
-    ],
+    // Jim: stands still by the shelf deep in the store — proximity triggers his greeting
+    'old-man': [],
   },
 }
 
 // ── Movement speeds (units / second) ─────────────────────────────────────────
 export const NPC_SPEEDS: Record<string, Record<string, number>> = {
   supermarket: {
-    'store-employee':     1.6,   // efficient worker
-    'manager':            2.1,   // purposeful
-    'couple':             0.7,   // leisurely browsing
-    'young-professional': 0.5,   // slow, distracted
-    'old-man':            0.32,  // slow, elderly shuffle
+    'store-employee':     2.0,   // efficient worker
+    'manager':            3.0,   // purposeful stride
+    'couple':             0.95,  // leisurely browsing
+    'young-professional': 1.5,   // stressed, quick pacing
+    'old-man':            0.22,  // elderly shuffle
   },
 }

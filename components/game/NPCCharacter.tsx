@@ -71,8 +71,22 @@ interface Fidget {
 const APPROACH_DIST  = 4.8   // start looking at player
 const RESUME_DIST    = 6.2   // hysteresis — resume patrol once player is this far
 const ARRIVE_THRESH  = 0.25  // metres — "reached waypoint"
-const IDLE_MIN       = 0.6   // seconds to pause at each waypoint (min)
-const IDLE_MAX       = 1.8   // seconds to pause at each waypoint (max)
+
+// ── Mood-based movement styles ────────────────────────────────────────────────
+interface MoveStyle {
+  idleMin:  number   // min seconds to pause at each waypoint
+  idleMax:  number   // max seconds to pause at each waypoint
+  turnLerp: number   // rotation lerp speed (higher = snappier)
+  erratic:  boolean  // randomly abort waypoints mid-route for jittery feel
+}
+const MOVE_STYLE: Record<string, MoveStyle> = {
+  stressed: { idleMin: 0.05, idleMax: 0.15, turnLerp: 24, erratic: true  },
+  busy:     { idleMin: 0.1,  idleMax: 0.35, turnLerp: 14, erratic: false },
+  neutral:  { idleMin: 0.6,  idleMax: 1.8,  turnLerp:  8, erratic: false },
+  friendly: { idleMin: 1.0,  idleMax: 2.5,  turnLerp:  6, erratic: false },
+  confused: { idleMin: 0.5,  idleMax: 1.5,  turnLerp:  7, erratic: false },
+  sad:      { idleMin: 1.2,  idleMax: 3.0,  turnLerp:  5, erratic: false },
+}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
@@ -84,6 +98,7 @@ interface Props {
   targetOverride: [number, number, number] | null   // external "go here" command
   npcPositionsRef: React.MutableRefObject<Map<string, THREE.Vector3>>
   onTargetReached: () => void
+  onProximityEnter?: () => void   // fires once when player first enters APPROACH_DIST
 }
 
 export default function NPCCharacter({
@@ -95,6 +110,7 @@ export default function NPCCharacter({
   targetOverride,
   npcPositionsRef,
   onTargetReached,
+  onProximityEnter,
 }: Props) {
   const groupRef   = useRef<THREE.Group>(null)
   const meshRef    = useRef<THREE.Group>(null)  // body sub-group for bob
@@ -158,8 +174,16 @@ export default function NPCCharacter({
   }, [targetOverride])
 
   // Proximity UI state (triggers React re-render only on transition)
-  const isNearRef  = useRef(false)
+  const isNearRef        = useRef(false)
   const [isNear, setIsNear] = useState(false)
+  // One-shot proximity callback — fires only the first time player approaches
+  const proximityFiredRef = useRef(false)
+
+  // Mood-based movement style
+  const style = MOVE_STYLE[npc.mood] ?? MOVE_STYLE.neutral
+
+  // Erratic NPCs get a panic timer that randomly aborts their current waypoint
+  const panicTimerRef = useRef(0.4 + Math.random() * 0.8)
 
   // Temporary vectors (reused each frame — avoids allocations)
   const _toTarget  = useRef(new THREE.Vector3())
@@ -179,6 +203,11 @@ export default function NPCCharacter({
     if (playerNear !== isNearRef.current) {
       isNearRef.current = playerNear
       setIsNear(playerNear)
+      // One-shot proximity callback — only the first time player enters range
+      if (playerNear && !proximityFiredRef.current) {
+        proximityFiredRef.current = true
+        onProximityEnter?.()
+      }
     }
 
     // ── State transitions ────────────────────────────────────────────────
@@ -196,6 +225,18 @@ export default function NPCCharacter({
     switch (b.state) {
       case 'patrolling': {
         if (waypoints.length === 0) { b.state = 'idle'; break }
+
+        // Erratic NPCs randomly abort their current waypoint and jump to another
+        if (style.erratic) {
+          panicTimerRef.current -= delta
+          if (panicTimerRef.current <= 0) {
+            panicTimerRef.current = 0.5 + Math.random() * 1.2
+            // Skip to a random different waypoint
+            const next = (b.waypointIndex + 1 + Math.floor(Math.random() * (waypoints.length - 1))) % waypoints.length
+            b.waypointIndex = next
+          }
+        }
+
         const wp = waypoints[b.waypointIndex]
         _toTarget.current.set(wp[0], 0, wp[2]).sub(posRef.current)
         const dist = _toTarget.current.length()
@@ -203,7 +244,7 @@ export default function NPCCharacter({
         if (dist < ARRIVE_THRESH) {
           // Reached waypoint — go idle briefly
           b.waypointIndex = (b.waypointIndex + 1) % waypoints.length
-          b.idleTimer     = IDLE_MIN + Math.random() * (IDLE_MAX - IDLE_MIN)
+          b.idleTimer     = style.idleMin + Math.random() * (style.idleMax - style.idleMin)
           b.state         = 'idle'
         } else {
           const step = Math.min(speed * delta, dist)
@@ -231,7 +272,7 @@ export default function NPCCharacter({
           .setY(0)
         if (_toPlayer.current.lengthSq() > 0.01) {
           const target = Math.atan2(_toPlayer.current.x, _toPlayer.current.z)
-          facingRef.current = lerpAngle(facingRef.current, target, 5 * delta)
+          facingRef.current = lerpAngle(facingRef.current, target, style.turnLerp * 0.5 * delta)
         }
         break
       }
@@ -263,11 +304,11 @@ export default function NPCCharacter({
     groupRef.current.position.x = posRef.current.x
     groupRef.current.position.z = posRef.current.z
 
-    // Rotation — always smooth
+    // Rotation — speed driven by mood (stressed = snappy, friendly = gentle)
     groupRef.current.rotation.y = THREE.MathUtils.lerp(
       groupRef.current.rotation.y,
       facingRef.current,
-      8 * delta,
+      style.turnLerp * delta,
     )
 
     // Bob — more pronounced while walking

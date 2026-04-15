@@ -103,7 +103,7 @@ export const SCENARIOS: Scenario[] = [
     chanceEvents: [
       {
         id: 'bumped-into-jim',
-        triggerAfterMessages: 6,
+        triggerAfterMessages: 9999,   // disabled — Jim greets via proximity trigger instead
         description: 'Jim approaches you directly',
         npcId: 'old-man',
         npcMessage: 'Oh! Excuse me, young one — sorry to bother you, but I wonder if you could help me reach that tin up there? My back\'s not what it used to be...',
