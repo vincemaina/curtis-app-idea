@@ -1,7 +1,49 @@
 'use client'
 
 import { Html } from '@react-three/drei'
+import { useMemo } from 'react'
 import * as THREE from 'three'
+
+// ── Procedural floor tile texture ──────────────────────────────────────────────
+function useTileTexture() {
+  return useMemo(() => {
+    const size = 512
+    const canvas = document.createElement('canvas')
+    canvas.width  = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+
+    // Tile base — warm cream
+    ctx.fillStyle = '#dedad4'
+    ctx.fillRect(0, 0, size, size)
+
+    // Subtle noise to break up the flat surface
+    for (let i = 0; i < 4000; i++) {
+      const x = Math.random() * size
+      const y = Math.random() * size
+      const a = Math.random() * 0.06
+      ctx.fillStyle = `rgba(0,0,0,${a})`
+      ctx.fillRect(x, y, 1, 1)
+    }
+
+    // Grout lines
+    const tileCount = 8
+    const tileSize  = size / tileCount
+    ctx.strokeStyle = '#b8b3ad'
+    ctx.lineWidth   = 5
+    for (let i = 0; i <= tileCount; i++) {
+      ctx.beginPath(); ctx.moveTo(i * tileSize, 0);    ctx.lineTo(i * tileSize, size); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(0, i * tileSize);    ctx.lineTo(size, i * tileSize); ctx.stroke()
+    }
+
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(10, 12.5)
+    tex.anisotropy = 8
+    return tex
+  }, [])
+}
 
 // ── Aisle hanging sign ─────────────────────────────────────────────────────────
 function AisleSign({
@@ -383,12 +425,13 @@ function CeilingLight({ position }: { position: [number, number, number] }) {
 export default function SupermarketScene() {
   const SHELF_X     = [-12, -4, 4, 12]
   const SHELF_ROWS_Z = [2, -8, -17]
+  const tileTexture = useTileTexture()
 
   return (
     <group>
-      {/* ── Lighting (10 lights total) ───────────────────────────────── */}
-      {/* Ambient — slightly warm, bright enough to read the scene without extra fills */}
-      <ambientLight intensity={0.9} color="#ffe8cc" />
+      {/* ── Lighting ────────────────────────────────────────────────── */}
+      {/* Ambient — reduced slightly; Environment IBL picks up the slack */}
+      <ambientLight intensity={0.55} color="#ffe8cc" />
 
       {/* Single shadow-casting directional from the entrance */}
       <directionalLight
@@ -421,12 +464,7 @@ export default function SupermarketScene() {
       {/* ── Floor ──────────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[40, 50]} />
-        <meshStandardMaterial color="#dedad4" roughness={0.12} metalness={0.04} />
-      </mesh>
-      {/* Tile grout lines */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.003, 0]}>
-        <planeGeometry args={[40, 50, 20, 25]} />
-        <meshStandardMaterial color="#c0bbb5" wireframe opacity={0.25} transparent />
+        <meshStandardMaterial map={tileTexture} roughness={0.18} metalness={0.04} />
       </mesh>
 
       {/* ── Ceiling ────────────────────────────────────────────────── */}

@@ -1,11 +1,26 @@
 'use client'
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
+import { Html, Outlines } from '@react-three/drei'
 import * as THREE from 'three'
 import type { NPC } from '@/lib/types'
 import { NPC_PATROLS, NPC_SPEEDS } from '@/lib/npc-positions'
+
+// Three-step toon gradient (sharp, cartoonish shading bands)
+function useToonGradient() {
+  return useMemo(() => {
+    const map = new THREE.DataTexture(
+      new Uint8Array([0, 96, 220, 255]),
+      4, 1,
+      THREE.RedFormat,
+    )
+    map.magFilter = THREE.NearestFilter
+    map.minFilter = THREE.NearestFilter
+    map.needsUpdate = true
+    return map
+  }, [])
+}
 
 // ── Colour maps ───────────────────────────────────────────────────────────────
 const MOOD_COLORS: Record<string, string> = {
@@ -73,12 +88,15 @@ export default function NPCCharacter({
 }: Props) {
   const groupRef   = useRef<THREE.Group>(null)
   const meshRef    = useRef<THREE.Group>(null)  // body sub-group for bob
+  const bodyRef    = useRef<THREE.Mesh>(null)   // torso mesh for breathing scale
 
   // Limb pivot groups — animated each frame
   const legLRef    = useRef<THREE.Group>(null)
   const legRRef    = useRef<THREE.Group>(null)
   const armLRef    = useRef<THREE.Group>(null)
   const armRRef    = useRef<THREE.Group>(null)
+
+  const toonGradient = useToonGradient()
 
   // Walk-cycle state
   const walkPhaseRef = useRef(0)   // phase advances only while moving
@@ -258,6 +276,14 @@ export default function NPCCharacter({
     if (legRRef.current) legRRef.current.rotation.x = -sw
     if (armLRef.current) armLRef.current.rotation.x = -sw * 0.42
     if (armRRef.current) armRRef.current.rotation.x =  sw * 0.42
+
+    // Idle breathing — gentle Y-scale pulse, staggered per NPC via initialPosition[0]
+    if (bodyRef.current) {
+      const breatheAmp  = moved ? 0.005 : 0.022
+      const breatheFreq = moved ? 3.5   : 0.9
+      const breathPhase = initialPosition[0] * 0.7   // stagger between NPCs
+      bodyRef.current.scale.y = 1 + Math.sin(t * breatheFreq + breathPhase) * breatheAmp
+    }
   })
 
   const bodyColor = NPC_BODY_COLORS[npc.id] ?? '#555'
@@ -278,12 +304,12 @@ export default function NPCCharacter({
         <group ref={legLRef} position={[-0.13, 0.92, 0]}>
           <mesh position={[0, -0.45, 0]} castShadow>
             <cylinderGeometry args={[0.085, 0.085, 0.9, 8]} />
-            <meshStandardMaterial color="#1a1a2e" roughness={0.9} />
+            <meshToonMaterial color="#1a1a2e" gradientMap={toonGradient} />
           </mesh>
           {/* Foot */}
           <mesh position={[0, -0.93, 0.06]}>
             <boxGeometry args={[0.14, 0.1, 0.24]} />
-            <meshStandardMaterial color="#111" roughness={0.8} />
+            <meshToonMaterial color="#111" gradientMap={toonGradient} />
           </mesh>
         </group>
 
@@ -291,31 +317,32 @@ export default function NPCCharacter({
         <group ref={legRRef} position={[0.13, 0.92, 0]}>
           <mesh position={[0, -0.45, 0]} castShadow>
             <cylinderGeometry args={[0.085, 0.085, 0.9, 8]} />
-            <meshStandardMaterial color="#1a1a2e" roughness={0.9} />
+            <meshToonMaterial color="#1a1a2e" gradientMap={toonGradient} />
           </mesh>
           {/* Foot */}
           <mesh position={[0, -0.93, 0.06]}>
             <boxGeometry args={[0.14, 0.1, 0.24]} />
-            <meshStandardMaterial color="#111" roughness={0.8} />
+            <meshToonMaterial color="#111" gradientMap={toonGradient} />
           </mesh>
         </group>
 
         {/* Body */}
-        <mesh position={[0, 1.15, 0]} castShadow>
+        <mesh ref={bodyRef} position={[0, 1.15, 0]} castShadow>
           <cylinderGeometry args={[0.27, 0.31, 0.72, 12]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.75} />
+          <meshToonMaterial color={bodyColor} gradientMap={toonGradient} />
+          <Outlines thickness={0.03} color="#111" opacity={0.85} />
         </mesh>
 
         {/* Left arm — pivot at shoulder */}
         <group ref={armLRef} position={[-0.38, 1.46, 0]}>
           <mesh position={[0, -0.28, 0]} rotation={[0, 0, 0.38]} castShadow>
             <cylinderGeometry args={[0.07, 0.065, 0.58, 8]} />
-            <meshStandardMaterial color={bodyColor} roughness={0.75} />
+            <meshToonMaterial color={bodyColor} gradientMap={toonGradient} />
           </mesh>
           {/* Hand */}
           <mesh position={[-0.1, -0.55, 0]}>
             <sphereGeometry args={[0.075, 6, 6]} />
-            <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
+            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
           </mesh>
         </group>
 
@@ -323,32 +350,33 @@ export default function NPCCharacter({
         <group ref={armRRef} position={[0.38, 1.46, 0]}>
           <mesh position={[0, -0.28, 0]} rotation={[0, 0, -0.38]} castShadow>
             <cylinderGeometry args={[0.07, 0.065, 0.58, 8]} />
-            <meshStandardMaterial color={bodyColor} roughness={0.75} />
+            <meshToonMaterial color={bodyColor} gradientMap={toonGradient} />
           </mesh>
           {/* Hand */}
           <mesh position={[0.1, -0.55, 0]}>
             <sphereGeometry args={[0.075, 6, 6]} />
-            <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
+            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
           </mesh>
         </group>
 
         {/* Neck */}
         <mesh position={[0, 1.58, 0]}>
           <cylinderGeometry args={[0.1, 0.1, 0.18, 8]} />
-          <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
+          <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
         </mesh>
 
         {/* Head */}
         <mesh position={[0, 1.87, 0]} castShadow>
           <sphereGeometry args={[0.24, 8, 8]} />
-          <meshStandardMaterial color="#f0c8a0" roughness={0.8} />
+          <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
+          <Outlines thickness={0.025} color="#111" opacity={0.85} />
         </mesh>
 
         {/* Eyes */}
         {([-0.09, 0.09] as const).map(x => (
           <mesh key={x} position={[x, 1.90, 0.21]}>
             <sphereGeometry args={[0.038, 6, 6]} />
-            <meshStandardMaterial color="#1a1a2e" roughness={0.5} />
+            <meshToonMaterial color="#1a1a2e" gradientMap={toonGradient} />
           </mesh>
         ))}
 
@@ -356,7 +384,7 @@ export default function NPCCharacter({
         {([-0.09, 0.09] as const).map(x => (
           <mesh key={x} position={[x, 1.97, 0.2]} rotation={[0.2, 0, 0]}>
             <boxGeometry args={[0.065, 0.018, 0.015]} />
-            <meshStandardMaterial color="#5a3a1a" roughness={1} />
+            <meshToonMaterial color="#5a3a1a" gradientMap={toonGradient} />
           </mesh>
         ))}
 

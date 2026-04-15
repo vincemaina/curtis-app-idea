@@ -1,7 +1,9 @@
 'use client'
 
 import { Canvas } from '@react-three/fiber'
-import { KeyboardControls } from '@react-three/drei'
+import { KeyboardControls, Environment } from '@react-three/drei'
+import { EffectComposer, Bloom, ToneMapping, N8AO } from '@react-three/postprocessing'
+import { ToneMappingMode } from 'postprocessing'
 import { Suspense, useRef } from 'react'
 import * as THREE from 'three'
 import type { Scenario, Message } from '@/lib/types'
@@ -60,6 +62,7 @@ export default function World({
       >
         <Suspense fallback={null}>
           <fog attach="fog" args={['#c4bdb4', 28, 58]} />
+          <Environment preset="warehouse" background={false} />
           <SupermarketScene />
 
           {scenario.npcs.map(npc => (
@@ -94,6 +97,12 @@ export default function World({
             onCollectItem={onCollectItem}
             onLockedChange={onLockedChange}
           />
+
+          <EffectComposer>
+            <N8AO aoRadius={3} intensity={1.2} distanceFalloff={0.5} />
+            <Bloom luminanceThreshold={0.55} luminanceSmoothing={0.9} intensity={0.45} />
+            <ToneMapping mode={ToneMappingMode.AGX} />
+          </EffectComposer>
         </Suspense>
       </Canvas>
     </KeyboardControls>
