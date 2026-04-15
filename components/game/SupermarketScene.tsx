@@ -1,48 +1,44 @@
 'use client'
 
-import { Html } from '@react-three/drei'
-import { useMemo } from 'react'
+import { Html, useTexture } from '@react-three/drei'
+import { useEffect, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
-// ── Procedural floor tile texture ──────────────────────────────────────────────
-function useTileTexture() {
-  return useMemo(() => {
-    const size = 512
-    const canvas = document.createElement('canvas')
-    canvas.width  = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')!
-
-    // Tile base — warm cream
-    ctx.fillStyle = '#dedad4'
-    ctx.fillRect(0, 0, size, size)
-
-    // Subtle noise to break up the flat surface
-    for (let i = 0; i < 4000; i++) {
-      const x = Math.random() * size
-      const y = Math.random() * size
-      const a = Math.random() * 0.06
-      ctx.fillStyle = `rgba(0,0,0,${a})`
-      ctx.fillRect(x, y, 1, 1)
-    }
-
-    // Grout lines
-    const tileCount = 8
-    const tileSize  = size / tileCount
-    ctx.strokeStyle = '#b8b3ad'
-    ctx.lineWidth   = 5
-    for (let i = 0; i <= tileCount; i++) {
-      ctx.beginPath(); ctx.moveTo(i * tileSize, 0);    ctx.lineTo(i * tileSize, size); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(0, i * tileSize);    ctx.lineTo(size, i * tileSize); ctx.stroke()
-    }
-
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.wrapS = THREE.RepeatWrapping
-    tex.wrapT = THREE.RepeatWrapping
-    tex.repeat.set(10, 12.5)
-    tex.anisotropy = 8
-    return tex
-  }, [])
+// ── Ceiling fan ────────────────────────────────────────────────────────────────
+function CeilingFan({ position, speed = 2.2 }: {
+  position: [number, number, number]
+  speed?: number
+}) {
+  const bladesRef = useRef<THREE.Group>(null)
+  useFrame((_, delta) => {
+    if (bladesRef.current) bladesRef.current.rotation.y += delta * speed
+  })
+  return (
+    <group position={position}>
+      {/* Drop rod */}
+      <mesh position={[0, 0.28, 0]}>
+        <cylinderGeometry args={[0.022, 0.022, 0.55, 6]} />
+        <meshStandardMaterial color="#999" metalness={0.55} roughness={0.35} />
+      </mesh>
+      {/* Motor housing */}
+      <mesh>
+        <cylinderGeometry args={[0.13, 0.13, 0.14, 14]} />
+        <meshStandardMaterial color="#aaa" metalness={0.5} roughness={0.4} />
+      </mesh>
+      {/* Blades */}
+      <group ref={bladesRef} position={[0, -0.05, 0]}>
+        {[0, 1, 2, 3].map(i => (
+          <group key={i} rotation={[0, (i * Math.PI) / 2, 0]}>
+            <mesh position={[0.52, -0.01, 0]} rotation={[0.14, 0, 0]}>
+              <boxGeometry args={[0.88, 0.022, 0.19]} />
+              <meshStandardMaterial color="#c8a855" roughness={0.75} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+    </group>
+  )
 }
 
 // ── Aisle hanging sign ─────────────────────────────────────────────────────────
@@ -88,10 +84,13 @@ const PRODUCT_COLORS = [
   '#d35400', '#27ae60',
 ]
 
-function ShelfUnit({ position, width = 2.5, seed = 0 }: {
+type TexMaps = { map: THREE.Texture; normalMap: THREE.Texture; roughnessMap: THREE.Texture }
+
+function ShelfUnit({ position, width = 2.5, seed = 0, shelfMaps }: {
   position: [number, number, number]
   width?: number
   seed?: number
+  shelfMaps?: TexMaps
 }) {
   const cols = Math.floor(width / 0.29)
 
@@ -100,13 +99,17 @@ function ShelfUnit({ position, width = 2.5, seed = 0 }: {
       {/* Back panel */}
       <mesh position={[0, 1, -0.25]} receiveShadow>
         <boxGeometry args={[width, 2, 0.06]} />
-        <meshStandardMaterial color="#6b5230" roughness={0.9} />
+        {shelfMaps
+          ? <meshStandardMaterial {...shelfMaps} color="#c8a870" roughness={0.85} />
+          : <meshStandardMaterial color="#6b5230" roughness={0.9} />}
       </mesh>
       {/* Side panels */}
       {([-width / 2, width / 2] as const).map((x, i) => (
         <mesh key={i} position={[x, 1, 0]} receiveShadow>
           <boxGeometry args={[0.06, 2, 0.5]} />
-          <meshStandardMaterial color="#7a5e32" roughness={0.85} />
+          {shelfMaps
+            ? <meshStandardMaterial {...shelfMaps} color="#c8a870" roughness={0.85} />
+            : <meshStandardMaterial color="#7a5e32" roughness={0.85} />}
         </mesh>
       ))}
 
@@ -116,7 +119,9 @@ function ShelfUnit({ position, width = 2.5, seed = 0 }: {
           {/* Shelf board */}
           <mesh position={[0, y, 0]} receiveShadow castShadow>
             <boxGeometry args={[width, 0.07, 0.5]} />
-            <meshStandardMaterial color="#9b7a3c" roughness={0.8} metalness={0.05} />
+            {shelfMaps
+              ? <meshStandardMaterial {...shelfMaps} color="#d4b07a" roughness={0.8} />
+              : <meshStandardMaterial color="#9b7a3c" roughness={0.8} metalness={0.05} />}
           </mesh>
           {/* Price strip */}
           <mesh position={[0, y - 0.05, 0.26]}>
@@ -187,7 +192,9 @@ function ShelfUnit({ position, width = 2.5, seed = 0 }: {
       {/* Top cap */}
       <mesh position={[0, 2.02, 0]}>
         <boxGeometry args={[width, 0.07, 0.5]} />
-        <meshStandardMaterial color="#9b7a3c" roughness={0.8} />
+        {shelfMaps
+          ? <meshStandardMaterial {...shelfMaps} color="#d4b07a" roughness={0.8} />
+          : <meshStandardMaterial color="#9b7a3c" roughness={0.8} />}
       </mesh>
     </group>
   )
@@ -423,9 +430,40 @@ function CeilingLight({ position }: { position: [number, number, number] }) {
 
 // ── Main scene ─────────────────────────────────────────────────────────────────
 export default function SupermarketScene() {
-  const SHELF_X     = [-12, -4, 4, 12]
+  const SHELF_X      = [-12, -4, 4, 12]
   const SHELF_ROWS_Z = [2, -8, -17]
-  const tileTexture = useTileTexture()
+
+  // ── Poly Haven textures ────────────────────────────────────────────────────
+  const floorMaps = useTexture({
+    map:          '/textures/floor_color.jpg',
+    normalMap:    '/textures/floor_normal.jpg',
+    roughnessMap: '/textures/floor_roughness.jpg',
+  })
+  const wallMaps = useTexture({
+    map:          '/textures/wall_color.jpg',
+    normalMap:    '/textures/wall_normal.jpg',
+    roughnessMap: '/textures/wall_roughness.jpg',
+  })
+  const shelfMaps = useTexture({
+    map:          '/textures/shelf_color.jpg',
+    normalMap:    '/textures/shelf_normal.jpg',
+    roughnessMap: '/textures/shelf_roughness.jpg',
+  })
+
+  // Configure repeat + wrap (once after texture load)
+  useEffect(() => {
+    const configure = (maps: typeof floorMaps, rs: number, rt: number) =>
+      Object.values(maps).forEach(t => {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping
+        t.repeat.set(rs, rt)
+        t.anisotropy = 8
+        t.needsUpdate = true
+      })
+    configure(floorMaps,  28, 35)   // floor: ~1.4 m tiles across 40×50 m
+    configure(wallMaps,   20, 2.5)  // wall: ~2 m tiles
+    configure(shelfMaps,  5,  1)    // shelf boards: 5 tiles across 2.5 m width
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <group>
@@ -464,7 +502,7 @@ export default function SupermarketScene() {
       {/* ── Floor ──────────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[40, 50]} />
-        <meshStandardMaterial map={tileTexture} roughness={0.18} metalness={0.04} />
+        <meshStandardMaterial {...floorMaps} roughness={0.18} metalness={0.04} />
       </mesh>
 
       {/* ── Ceiling ────────────────────────────────────────────────── */}
@@ -489,31 +527,37 @@ export default function SupermarketScene() {
         ))
       )}
 
+      {/* ── Ceiling fans ────────────────────────────────────────────── */}
+      <CeilingFan position={[-8,  4.82,  10]} speed={2.0} />
+      <CeilingFan position={[ 8,  4.82,  10]} speed={2.4} />
+      <CeilingFan position={[ 0,  4.82, -2]}  speed={1.8} />
+      <CeilingFan position={[-8,  4.82, -13]} speed={2.2} />
+
       {/* ── Walls ──────────────────────────────────────────────────── */}
-      {/* Back wall — slightly warm */}
+      {/* Back wall */}
       <mesh position={[0, 2.5, -25]} receiveShadow>
         <boxGeometry args={[40, 5, 0.3]} />
-        <meshStandardMaterial color="#ece6de" roughness={0.9} />
+        <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Left wall */}
       <mesh position={[-20, 2.5, 0]} receiveShadow>
         <boxGeometry args={[0.3, 5, 50]} />
-        <meshStandardMaterial color="#ece6de" roughness={0.9} />
+        <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Right wall */}
       <mesh position={[20, 2.5, 0]} receiveShadow>
         <boxGeometry args={[0.3, 5, 50]} />
-        <meshStandardMaterial color="#ece6de" roughness={0.9} />
+        <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Front — left of entrance */}
       <mesh position={[-11, 2.5, 25]}>
         <boxGeometry args={[18, 5, 0.3]} />
-        <meshStandardMaterial color="#ece6de" roughness={0.9} />
+        <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
       {/* Front — right of entrance */}
       <mesh position={[11, 2.5, 25]}>
         <boxGeometry args={[18, 5, 0.3]} />
-        <meshStandardMaterial color="#ece6de" roughness={0.9} />
+        <meshStandardMaterial {...wallMaps} color="#f0ede8" roughness={0.88} />
       </mesh>
 
       {/* Skirting boards */}
@@ -559,6 +603,7 @@ export default function SupermarketScene() {
             position={[x, 0, z]}
             width={2.5}
             seed={ri * 4 + ci}
+            shelfMaps={shelfMaps as TexMaps}
           />
         ))
       )}

@@ -30,6 +30,7 @@ interface Props {
   items: SupermarketItem[]
   collectedItemIds: string[]
   chatOpen: boolean
+  shakeSignal: number
   npcTargets: Record<string, [number, number, number] | null>
   onTalkToNPC: (npcId: string) => void
   onCollectItem: (itemId: string) => void
@@ -43,6 +44,7 @@ export default function World({
   items,
   collectedItemIds,
   chatOpen,
+  shakeSignal,
   npcTargets,
   onTalkToNPC,
   onCollectItem,
@@ -92,6 +94,7 @@ export default function World({
             items={items}
             collectedItemIds={collectedItemIds}
             chatOpen={chatOpen}
+            shakeSignal={shakeSignal}
             npcPositionsRef={npcPositionsRef}
             onTalkToNPC={onTalkToNPC}
             onCollectItem={onCollectItem}

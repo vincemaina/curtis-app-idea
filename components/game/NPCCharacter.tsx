@@ -55,6 +55,16 @@ interface Behavior {
   idleTimer: number
   hasTarget: boolean
   target: THREE.Vector3
+  fidgetCooldown: number       // seconds until next fidget (counts down while idle)
+}
+
+// ── Fidget animation state ─────────────────────────────────────────────────────
+interface Fidget {
+  type: 'look' | 'arm'
+  progress: number   // 0 → 1: sin(progress * π) drives the animation
+  speed: number      // progress units/sec (1 / total_duration)
+  angle: number      // look: target Y rotation; arm: target X rotation delta
+  side: 'L' | 'R'   // which arm to raise
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -89,12 +99,16 @@ export default function NPCCharacter({
   const groupRef   = useRef<THREE.Group>(null)
   const meshRef    = useRef<THREE.Group>(null)  // body sub-group for bob
   const bodyRef    = useRef<THREE.Mesh>(null)   // torso mesh for breathing scale
+  const headRef    = useRef<THREE.Group>(null)  // head group for fidget look-around
 
   // Limb pivot groups — animated each frame
   const legLRef    = useRef<THREE.Group>(null)
   const legRRef    = useRef<THREE.Group>(null)
   const armLRef    = useRef<THREE.Group>(null)
   const armRRef    = useRef<THREE.Group>(null)
+
+  // Fidget animation state
+  const fidgetRef  = useRef<Fidget | null>(null)
 
   const toonGradient = useToonGradient()
 
@@ -116,6 +130,7 @@ export default function NPCCharacter({
     idleTimer:      0,
     hasTarget:      false,
     target:         new THREE.Vector3(),
+    fidgetCooldown: 3 + Math.random() * 4,  // stagger first fidget per NPC
   })
 
   // Register (and later deregister) this NPC's live position
@@ -277,6 +292,55 @@ export default function NPCCharacter({
     if (armLRef.current) armLRef.current.rotation.x = -sw * 0.42
     if (armRRef.current) armRRef.current.rotation.x =  sw * 0.42
 
+    // ── Fidget trigger (only while idle and not facing player) ───────────
+    if (b.state === 'idle' && !moved) {
+      b.fidgetCooldown -= delta
+      if (b.fidgetCooldown <= 0 && !fidgetRef.current) {
+        b.fidgetCooldown = 4 + Math.random() * 5
+        const type = Math.random() < 0.55 ? 'look' : 'arm'
+        fidgetRef.current = {
+          type,
+          progress: 0,
+          speed: 1 / 2.2,   // full cycle takes 2.2 s
+          angle: type === 'look'
+            ? (Math.random() < 0.5 ? 1 : -1) * (0.25 + Math.random() * 0.3)
+            : -(0.6 + Math.random() * 0.4),
+          side: Math.random() < 0.5 ? 'L' : 'R',
+        }
+      }
+    } else {
+      // Cancel fidget if state changes (e.g. player approaches)
+      if (fidgetRef.current) fidgetRef.current = null
+    }
+
+    // ── Drive fidget animation ───────────────────────────────────────────
+    if (fidgetRef.current) {
+      const f = fidgetRef.current
+      f.progress += delta * f.speed
+      if (f.progress >= 1) {
+        fidgetRef.current = null
+        // Snap back to rest
+        if (headRef.current) headRef.current.rotation.y = 0
+        if (armLRef.current) armLRef.current.rotation.x = 0
+        if (armRRef.current) armRRef.current.rotation.x = 0
+      } else {
+        // sin envelope — smooth rise → peak → return
+        const envelope = Math.sin(f.progress * Math.PI)
+        if (f.type === 'look' && headRef.current) {
+          headRef.current.rotation.y = f.angle * envelope
+        } else if (f.type === 'arm') {
+          const target = armLRef.current && f.side === 'L' ? armLRef.current
+            : armRRef.current ?? null
+          if (target) target.rotation.x = f.angle * envelope
+        }
+      }
+    } else if (b.state !== 'idle') {
+      // Ensure head snaps back while moving
+      if (headRef.current) headRef.current.rotation.y = THREE.MathUtils.lerp(
+        headRef.current.rotation.y, 0, 8 * delta,
+      )
+    }
+
     // Idle breathing — gentle Y-scale pulse, staggered per NPC via initialPosition[0]
     if (bodyRef.current) {
       const breatheAmp  = moved ? 0.005 : 0.022
@@ -359,44 +423,47 @@ export default function NPCCharacter({
           </mesh>
         </group>
 
-        {/* Neck */}
-        <mesh position={[0, 1.58, 0]}>
-          <cylinderGeometry args={[0.1, 0.1, 0.18, 8]} />
-          <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
-        </mesh>
-
-        {/* Head */}
-        <mesh position={[0, 1.87, 0]} castShadow>
-          <sphereGeometry args={[0.24, 8, 8]} />
-          <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
-          <Outlines thickness={0.025} color="#111" opacity={0.85} />
-        </mesh>
-
-        {/* Eyes */}
-        {([-0.09, 0.09] as const).map(x => (
-          <mesh key={x} position={[x, 1.90, 0.21]}>
-            <sphereGeometry args={[0.038, 6, 6]} />
-            <meshToonMaterial color="#1a1a2e" gradientMap={toonGradient} />
+        {/* Head group — pivot at neck base (y=1.67) for look-around fidgets */}
+        <group ref={headRef} position={[0, 1.67, 0]}>
+          {/* Neck */}
+          <mesh position={[0, -0.09, 0]}>
+            <cylinderGeometry args={[0.1, 0.1, 0.18, 8]} />
+            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
           </mesh>
-        ))}
 
-        {/* Eyebrows */}
-        {([-0.09, 0.09] as const).map(x => (
-          <mesh key={x} position={[x, 1.97, 0.2]} rotation={[0.2, 0, 0]}>
-            <boxGeometry args={[0.065, 0.018, 0.015]} />
-            <meshToonMaterial color="#5a3a1a" gradientMap={toonGradient} />
+          {/* Head */}
+          <mesh position={[0, 0.20, 0]} castShadow>
+            <sphereGeometry args={[0.24, 8, 8]} />
+            <meshToonMaterial color="#f0c8a0" gradientMap={toonGradient} />
+            <Outlines thickness={0.025} color="#111" opacity={0.85} />
           </mesh>
-        ))}
 
-        {/* Mood dot */}
-        <mesh position={[0, 2.28, 0]}>
-          <sphereGeometry args={[0.085, 6, 6]} />
-          <meshStandardMaterial
-            color={moodColor}
-            emissive={moodColor}
-            emissiveIntensity={0.9}
-          />
-        </mesh>
+          {/* Eyes */}
+          {([-0.09, 0.09] as const).map(x => (
+            <mesh key={x} position={[x, 0.23, 0.21]}>
+              <sphereGeometry args={[0.038, 6, 6]} />
+              <meshToonMaterial color="#1a1a2e" gradientMap={toonGradient} />
+            </mesh>
+          ))}
+
+          {/* Eyebrows */}
+          {([-0.09, 0.09] as const).map(x => (
+            <mesh key={x} position={[x, 0.30, 0.20]} rotation={[0.2, 0, 0]}>
+              <boxGeometry args={[0.065, 0.018, 0.015]} />
+              <meshToonMaterial color="#5a3a1a" gradientMap={toonGradient} />
+            </mesh>
+          ))}
+
+          {/* Mood dot */}
+          <mesh position={[0, 0.61, 0]}>
+            <sphereGeometry args={[0.085, 6, 6]} />
+            <meshStandardMaterial
+              color={moodColor}
+              emissive={moodColor}
+              emissiveIntensity={0.9}
+            />
+          </mesh>
+        </group>
       </group>
 
       {/* HTML label — attached to the group so it follows NPC position */}

@@ -33,6 +33,7 @@ export default function Game3D({ scenario }: Props) {
   const [newlyCompleted,  setNewlyCompleted]  = useState<string[]>([])
   const [collectedItemIds, setCollectedItemIds] = useState<string[]>([])
   const [npcTargets, setNpcTargets] = useState<Record<string, [number, number, number] | null>>({})
+  const [shakeSignal, setShakeSignal] = useState(0)
 
   // Only show items for the supermarket scenario
   const sceneItems = scenario.id === 'supermarket' ? SUPERMARKET_ITEMS : []
@@ -139,6 +140,7 @@ export default function Game3D({ scenario }: Props) {
         if (freshCompleted.length > 0) {
           setNewlyCompleted(freshCompleted)
           setTimeout(() => setNewlyCompleted([]), 3000)
+          setShakeSignal(s => s + 1)
         }
 
         // NPC declared they'll physically go fetch an item — send them there
@@ -180,6 +182,7 @@ export default function Game3D({ scenario }: Props) {
     if (!item || collectedItemIds.includes(itemId)) return
 
     setCollectedItemIds(prev => [...prev, itemId])
+    setShakeSignal(s => s + 1)
 
     // Mark the linked objective complete if not already done
     if (!gameState.completedObjectiveIds.includes(item.objectiveId)) {
@@ -216,6 +219,7 @@ export default function Game3D({ scenario }: Props) {
         items={sceneItems}
         collectedItemIds={collectedItemIds}
         chatOpen={chatOpen}
+        shakeSignal={shakeSignal}
         npcTargets={npcTargets}
         onTalkToNPC={handleTalkToNPC}
         onCollectItem={handleCollectItem}
