@@ -354,6 +354,8 @@ export default function Game3D({ scenario }: Props) {
         items={sceneItems}
         collectedItemIds={collectedItemIds}
         chatOpen={chatOpen}
+        activeNpcId={gameState.activeNpcId}
+        isNpcSpeaking={isLoading}
         shakeSignal={shakeSignal}
         npcTargets={npcTargets}
         onTalkToNPC={handleTalkToNPC}

@@ -76,6 +76,8 @@ interface Props {
   items: SupermarketItem[]
   collectedItemIds: string[]
   chatOpen: boolean
+  activeNpcId: string | null
+  isNpcSpeaking: boolean
   shakeSignal: number
   npcTargets: Record<string, [number, number, number] | null>
   onTalkToNPC: (npcId: string) => void
@@ -91,6 +93,8 @@ export default function World({
   items,
   collectedItemIds,
   chatOpen,
+  activeNpcId,
+  isNpcSpeaking,
   shakeSignal,
   npcTargets,
   onTalkToNPC,
@@ -134,6 +138,7 @@ export default function World({
               initialPosition={getNPCPosition(scenario.id, npc.id)}
               hasTalked={!!conversations[npc.id]?.length}
               chatOpen={chatOpen}
+              isSpeaking={isNpcSpeaking && activeNpcId === npc.id}
               targetOverride={npcTargets[npc.id] ?? null}
               npcPositionsRef={npcPositionsRef}
               onTargetReached={() => onTargetReached(npc.id)}
